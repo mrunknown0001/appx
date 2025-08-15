@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Filament\Models\Contracts\HasAvatar;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -28,6 +29,7 @@ class User extends Authenticatable implements FilamentUser
         'is_active',
         'is_locked',
         'role',
+        'avatar_url',
     ];
 
     /**
@@ -57,6 +59,11 @@ class User extends Authenticatable implements FilamentUser
     {
         return true;
     }
+
+     public function getFilamentAvatarUrl(): ?string
+     {
+         return $this->avatar_url;
+     }
 
     public function getNameAttribute()
     {

@@ -23,6 +23,15 @@ class UsersTableSeeder extends Seeder
                 'is_admin' => 1,
                 'is_active' => 1,
                 'role' => 'admin'
+            ],
+            [
+                'first_name' => 'Man',
+                'last_name' => 'Nager',
+                'email' => 'manager@app.com',
+                'password' => bcrypt('password'),
+                'is_admin' => 1,
+                'is_active' => 1,
+                'role' => 'manager'
             ]
         ]);
     }
