@@ -21,15 +21,18 @@ class User extends Authenticatable implements FilamentUser
      * @var list<string>
      */
     protected $fillable = [
-        'first_name',
-        'last_name',
+        'employee_id',
+        'name',
         'email',
+        'position',
+        'contact_number',
         'password',
         'is_admin',
-        'is_active',
-        'is_locked',
         'role',
         'avatar_url',
+        'shift',
+        'date_hired',
+        'status',
     ];
 
     /**
@@ -57,6 +60,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
+        \Log::info('Checking panel access for user: ' . $this->employee_id);
         return true;
     }
 
@@ -65,9 +69,14 @@ class User extends Authenticatable implements FilamentUser
          return $this->avatar_url;
      }
 
-    public function getNameAttribute()
+    public function getAuthIdentifierName()
     {
-        return $this->first_name . ' ' . $this->last_name;
+        return 'employee_id';
+    }
+
+    public function findForAuth(string $employee_id): ?self
+    {
+        return static::where('employee_id', $employee_id)->first();
     }
 
 }

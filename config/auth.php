@@ -40,6 +40,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        'filament' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

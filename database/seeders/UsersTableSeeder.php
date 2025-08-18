@@ -16,21 +16,19 @@ class UsersTableSeeder extends Seeder
     {
         DB::table('users')->insert([
             [
-                'first_name' => 'Admin',
-                'last_name' => 'Admin',
+                'employee_id' => 'EMP0001',
+                'name' => 'Admin Admin',
                 'email' => 'admin@app.com',
                 'password' => bcrypt('password'),
-                'is_admin' => 1,
-                'is_active' => 1,
+                'status' => 'active',
                 'role' => 'admin'
             ],
             [
-                'first_name' => 'Man',
-                'last_name' => 'Nager',
+                'employee_id' => 'EMP0002',
+                'name' => 'Man Nager',
                 'email' => 'manager@app.com',
                 'password' => bcrypt('password'),
-                'is_admin' => 1,
-                'is_active' => 1,
+                'status' => 'active',
                 'role' => 'manager'
             ]
         ]);
