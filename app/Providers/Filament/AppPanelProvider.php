@@ -109,6 +109,7 @@ class AppPanelProvider extends PanelProvider
                     900 => '#164e63',
                     950 => '#083344',
                 ],
-            ]);
+            ])
+            ->databaseNotifications();
     }
 }
