@@ -25,6 +25,9 @@ return new class extends Migration
             $table->string('password');
             $table->boolean('is_admin')->default(0);
             $table->string('role', 50)->nullable()->default('user');
+            $table->string(config('filament-edit-profile.avatar_column', 'avatar_url'))->nullable();
+            $table->json('custom_fields')->nullable();
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

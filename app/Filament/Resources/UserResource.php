@@ -16,13 +16,35 @@ use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\DatePicker;
+use Illuminate\Database\Eloquent\Model;
 
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    protected static ?string $navigationLabel = 'Employee Record';
+
+    protected static ?string $pluralLabel = 'Employee Records';
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email', 'employee_id'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name; // What shows as the main title
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Employee ID' => $record->employee_id,
+            'Position' => $record->position];
+    }
 
     public static function form(Form $form): Form
     {
@@ -224,11 +246,29 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
 
+                Tables\Columns\TextColumn::make('date_hired')
+                    ->label('Date Hired')
+                    ->date('F d, Y')
+                    ->searchable()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('contact_number')
                     ->label('Contact Number')
                     ->searchable()
                     ->sortable()
                     ->copyable(),
+
+                Tables\Columns\TextColumn::make('shift')
+                    ->label('Shift')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'morning' => 'Morning',
+                        'midday' => 'Midday',
+                        'night' => 'Night',
+                        default => $state,
+                    })
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
@@ -245,7 +285,8 @@ class UserResource extends Resource
                         'user' => 'danger',
                         default => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
@@ -256,7 +297,19 @@ class UserResource extends Resource
                         'user' => 'danger',
                         default => 'gray',
                     })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => 'Active',
+                        'on_leave' => 'On Leave',
+                        'resigned' => 'Resigned',
+                        default => 'Inactive',
+                    })
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('last_login_at')
+                    ->label('Last Login')
+                    ->dateTime('F d, Y h:i A')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Created')
@@ -291,7 +344,7 @@ class UserResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -310,5 +363,11 @@ class UserResource extends Resource
             'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('role', '!=', 'admin');
     }
 }

@@ -9,11 +9,13 @@ use Illuminate\Notifications\Notifiable;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Filament\Models\Contracts\HasAvatar;
+use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar, Auditable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, \OwenIt\Auditing\Auditable;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +30,27 @@ class User extends Authenticatable implements FilamentUser
         'contact_number',
         'password',
         'is_admin',
+        'role',
+        'avatar_url',
+        'shift',
+        'date_hired',
+        'status',
+        'last_login_at',
+    ];
+
+    /**
+     * Attributes to include in the Audit.
+     *
+     * @var array
+     */
+    protected $auditInclude = [
+        'id',
+        'employee_id',
+        'name',
+        'email',
+        'position',
+        'contact_number',
+        'password',
         'role',
         'avatar_url',
         'shift',
@@ -66,7 +89,8 @@ class User extends Authenticatable implements FilamentUser
 
      public function getFilamentAvatarUrl(): ?string
      {
-         return $this->avatar_url;
+        $avatarColumn = config('filament-edit-profile.avatar_column', 'avatar_url');
+        return $this->$avatarColumn ? Storage::url($this->$avatarColumn) : null;
      }
 
     public function getAuthIdentifierName()
