@@ -64,14 +64,8 @@ class ListProducts extends ListRecords
 
     private function getLowStockCount(): int
     {
-        return Product::leftJoin('inventory_batches', function($join) {
-                $join->on('products.id', '=', 'inventory_batches.product_id')
-                     ->where('inventory_batches.expiry_date', '>', now())
-                     ->where('inventory_batches.status', '=', 'active');
-            })
-            ->selectRaw('products.id, COALESCE(SUM(inventory_batches.current_quantity), 0) as total_stock')
-            ->groupBy('products.id')
-            ->havingRaw('total_stock <= products.min_stock_level')
+        return \DB::table('product_stocks')
+            ->where('stock_status', 'low_stock')
             ->count();
     }
 
