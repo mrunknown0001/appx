@@ -215,7 +215,17 @@ class SaleItemsRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data): array {
                         // Validate inventory availability before creating
                         $batch = InventoryBatch::find($data['inventory_batch_id']);
-                        if ($batch && $batch->current_quantity < $data['quantity']) {
+                        if (!$batch) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Inventory Batch Not Found')
+                                ->body('The selected inventory batch does not exist.')
+                                ->send();
+                            
+                            throw new \Exception('Inventory batch not found');
+                        }
+                        
+                        if ($batch->current_quantity < $data['quantity']) {
                             Notification::make()
                                 ->danger()
                                 ->title('Insufficient Stock')
@@ -225,21 +235,72 @@ class SaleItemsRelationManager extends RelationManager
                             throw new \Exception('Insufficient stock available');
                         }
                         
+                        // Add debugging
+                        \Log::info('Creating sale item', [
+                            'batch_id' => $batch->id,
+                            'current_quantity' => $batch->current_quantity,
+                            'requested_quantity' => $data['quantity']
+                        ]);
+                        
                         return $data;
                     })
                     ->after(function ($record) {
-                        // Update inventory batch quantity
-                        $batch = $record->inventoryBatch;
-                        if ($batch) {
+                        try {
+                            // Reload the record to ensure we have the latest data
+                            $record = $record->fresh(['inventoryBatch']);
+                            
+                            // Update inventory batch quantity
+                            $batch = $record->inventoryBatch;
+                            if (!$batch) {
+                                \Log::error('Inventory batch not found for sale item', ['sale_item_id' => $record->id]);
+                                return;
+                            }
+                            
                             $newQuantity = $batch->current_quantity - $record->quantity;
+                            
+                            // Add debugging
+                            \Log::info('Updating inventory batch', [
+                                'batch_id' => $batch->id,
+                                'old_quantity' => $batch->current_quantity,
+                                'sale_quantity' => $record->quantity,
+                                'new_quantity' => $newQuantity
+                            ]);
+                            
                             $batch->update([
-                                'current_quantity' => $newQuantity,
+                                'current_quantity' => max(0, $newQuantity), // Ensure we don't go negative
                                 'status' => $newQuantity <= 0 ? 'depleted' : 'active'
                             ]);
+                            
+                            // Verify the update worked
+                            $batch->refresh();
+                            \Log::info('Inventory batch updated', [
+                                'batch_id' => $batch->id,
+                                'updated_quantity' => $batch->current_quantity,
+                                'status' => $batch->status
+                            ]);
+                            
+                            // Update sale totals
+                            $this->updateSaleTotals();
+                            
+                            // Show success notification
+                            Notification::make()
+                                ->success()
+                                ->title('Sale Item Added')
+                                ->body("Inventory updated: {$record->quantity} units deducted from batch {$batch->batch_number}")
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            \Log::error('Error updating inventory after sale item creation', [
+                                'error' => $e->getMessage(),
+                                'sale_item_id' => $record->id ?? null
+                            ]);
+                            
+                            Notification::make()
+                                ->danger()
+                                ->title('Inventory Update Failed')
+                                ->body('Sale item created but inventory was not updated. Please check the logs.')
+                                ->send();
                         }
-                        
-                        // Update sale totals
-                        $this->updateSaleTotals();
                     }),
             ])
             ->actions([
