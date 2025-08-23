@@ -25,6 +25,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('price_history');
+        Schema::dropIfExists('price_histories');
     }
 };
