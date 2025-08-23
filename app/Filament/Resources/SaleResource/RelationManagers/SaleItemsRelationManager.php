@@ -329,26 +329,39 @@ class SaleItemsRelationManager extends RelationManager
     {
         $sale = $this->getOwnerRecord();
         
-        $saleItems = $sale->saleItems;
+        // Force refresh the relationship to get current data
+        $sale->load('saleItems');
         
-        $subtotal = $saleItems->sum('total_price');
-        $itemDiscounts = $saleItems->sum('discount_amount');
+        $subtotal = $sale->saleItems->sum('total_price');
         
-        // Keep existing sale-level discount and tax
-        $saleDiscount = $sale->discount_amount ?? 0;
+        // Get current form state for tax and discount (in case user changed them)
         $taxAmount = $sale->tax_amount ?? 0;
+        $saleDiscount = $sale->discount_amount ?? 0;
         
         $total = $subtotal + $taxAmount - $saleDiscount;
         
+        // Update the sale record
         $sale->update([
             'subtotal' => $subtotal,
             'total_amount' => max(0, $total),
         ]);
         
+        // Refresh the parent form to show updated values
+        $this->dispatch('refresh-parent-form');
+        
+        // Also refresh the owner record to ensure UI sync
+        $this->refreshOwnerRecord();
+        
         Notification::make()
             ->success()
             ->title('Sale Updated')
-            ->body('Sale totals have been recalculated.')
+            ->body("Subtotal: ₱" . number_format($subtotal, 2) . " | Total: ₱" . number_format($total, 2))
             ->send();
+    }
+
+    // Add this method as well to refresh the owner record
+    protected function refreshOwnerRecord(): void
+    {
+        $this->ownerRecord = $this->ownerRecord->fresh();
     }
 }

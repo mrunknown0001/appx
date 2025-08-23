@@ -237,36 +237,57 @@ class SaleResource extends Resource
                                         Grid::make(2)
                                             ->schema([
                                                 TextInput::make('subtotal')
-                                                    ->required()
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->readOnly()
-                                                    ->dehydrated(),
+                                                    ->dehydrated()
+                                                    ->formatStateUsing(fn ($state) => number_format($state ?? 0, 2))
+                                                    ->extraAttributes(['class' => 'font-bold'])
+                                                    ->live(),
 
                                                 TextInput::make('tax_amount')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->default(0)
-                                                    ->minValue(0),
+                                                    ->minValue(0)
+                                                    ->live(debounce: 500)
+                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                        $subtotal = (float) $get('subtotal');
+                                                        $tax = (float) $get('tax_amount');
+                                                        $discount = (float) $get('discount_amount');
+                                                        $total = $subtotal + $tax - $discount;
+                                                        $set('total_amount', max(0, $total));
+                                                    }),
 
                                                 TextInput::make('discount_amount')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->default(0)
-                                                    ->minValue(0),
+                                                    ->minValue(0)
+                                                    ->live(debounce: 500)
+                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                        $subtotal = (float) $get('subtotal');
+                                                        $tax = (float) $get('tax_amount');
+                                                        $discount = (float) $get('discount_amount');
+                                                        $total = $subtotal + $tax - $discount;
+                                                        $set('total_amount', max(0, $total));
+                                                    }),
 
                                                 TextInput::make('total_amount')
-                                                    ->required()
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->readOnly()
-                                                    ->dehydrated(),
+                                                    ->dehydrated()
+                                                    ->formatStateUsing(fn ($state) => number_format($state ?? 0, 2))
+                                                    ->extraAttributes(['class' => 'font-bold text-green-600'])
+                                                    ->live(),
                                             ]),
 
                                         Placeholder::make('calculation_info')
-                                            ->content('Totals will be automatically calculated based on sale items.')
+                                            ->content('Totals will be automatically calculated based on sale items. Tax and discount can be adjusted above.')
                                             ->columnSpanFull(),
-                                    ]),
+                                    ])
+                                    ->extraAttributes(['id' => 'sale-summary-section']),
                             ]),
                     ])
                     ->persistTabInQueryString()
