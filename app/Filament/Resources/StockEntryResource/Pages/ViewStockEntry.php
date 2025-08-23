@@ -23,7 +23,7 @@ class ViewStockEntry extends ViewRecord
                 ->label('View Product')
                 ->icon('heroicon-o-cube')
                 ->url(fn (): string => 
-                    route('filament.admin.resources.products.view', $this->record->product)
+                    route('filament.app.resources.products.view', $this->record->product)
                 )
                 ->openUrlInNewTab(),
         ];
@@ -41,7 +41,7 @@ class ViewStockEntry extends ViewRecord
                                     ->label('Product')
                                     ->weight(FontWeight::Bold)
                                     ->size('lg')
-                                    ->description(fn ($record) => "SKU: {$record->product->sku}"),
+                                    ->helperText(fn ($record) => "SKU: {$record->product->sku}"),
 
                                 TextEntry::make('supplier_name')
                                     ->label('Supplier')

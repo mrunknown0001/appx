@@ -386,7 +386,7 @@ class ProductResource extends Resource
                     Tables\Actions\Action::make('stock_history')
                         ->label('Stock History')
                         ->icon('heroicon-o-chart-bar')
-                        ->url(fn (Product $record): string => route('filament.admin.resources.stock-entries.index', ['tableFilters[product_id][value]' => $record->id]))
+                        ->url(fn (Product $record): string => route('filament.app.resources.stock-entries.index', ['tableFilters[product_id][value]' => $record->id]))
                         ->openUrlInNewTab(),
                     Tables\Actions\DeleteAction::make()
                         ->before(function (Product $record) {

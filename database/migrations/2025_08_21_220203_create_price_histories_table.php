@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('price_history', function (Blueprint $table) {
+        Schema::create('price_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->decimal('cost_price', 10, 2);

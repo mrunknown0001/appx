@@ -296,7 +296,7 @@ class StockEntryResource extends Resource
                         ->label('View Product')
                         ->icon('heroicon-o-cube')
                         ->url(fn (StockEntry $record): string => 
-                            route('filament.admin.resources.products.view', $record->product)
+                            route('filament.app.resources.products.view', $record->product)
                         )
                         ->openUrlInNewTab(),
                     Tables\Actions\DeleteAction::make()
