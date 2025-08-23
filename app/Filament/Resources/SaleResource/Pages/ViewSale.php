@@ -41,7 +41,7 @@ class ViewSale extends ViewRecord
                         $newItem->save();
                     }
 
-                    return redirect()->route('filament.admin.resources.sales.view', $newSale);
+                    return redirect()->route('filament.app.resources.sales.view', $newSale);
                 }),
                 
             Actions\Action::make('print_receipt')
@@ -243,7 +243,7 @@ class ViewSale extends ViewRecord
                                                             ->label('Product')
                                                             ->weight(FontWeight::Bold)
                                                             ->columnSpan(2)
-                                                            ->description(fn ($record) => 
+                                                            ->helperText(fn ($record) => 
                                                                 "SKU: {$record->product->sku}" . 
                                                                 ($record->product->manufacturer ? " | {$record->product->manufacturer}" : "")
                                                             ),
@@ -253,7 +253,7 @@ class ViewSale extends ViewRecord
                                                             ->badge()
                                                             ->color('gray')
                                                             ->columnSpan(1)
-                                                            ->description(fn ($record) => 
+                                                            ->helperText(fn ($record) => 
                                                                 "Exp: {$record->inventoryBatch->expiry_date->format('M d, Y')}"
                                                             ),
 
