@@ -26,6 +26,54 @@ class SaleItem extends Model
         'discount_amount' => 'decimal:2'
     ];
 
+
+    protected static function booted()
+    {
+        static::created(function ($saleItem) {
+            $batch = $saleItem->inventoryBatch;
+            if ($batch) {
+                $newQuantity = $batch->current_quantity - $saleItem->quantity;
+                $batch->update([
+                    'current_quantity' => max(0, $newQuantity),
+                    'status' => $newQuantity <= 0 ? 'depleted' : 'active'
+                ]);
+                
+                \Log::info('Inventory updated via model event', [
+                    'sale_item_id' => $saleItem->id,
+                    'batch_id' => $batch->id,
+                    'new_quantity' => $batch->current_quantity
+                ]);
+            }
+        });
+        
+        static::updated(function ($saleItem) {
+            if ($saleItem->isDirty('quantity')) {
+                $originalQuantity = $saleItem->getOriginal('quantity');
+                $quantityDifference = $saleItem->quantity - $originalQuantity;
+                
+                $batch = $saleItem->inventoryBatch;
+                if ($batch && $quantityDifference != 0) {
+                    $newQuantity = $batch->current_quantity - $quantityDifference;
+                    $batch->update([
+                        'current_quantity' => max(0, $newQuantity),
+                        'status' => $newQuantity <= 0 ? 'depleted' : 'active'
+                    ]);
+                }
+            }
+        });
+        
+        static::deleted(function ($saleItem) {
+            // Return stock when item is deleted
+            $batch = $saleItem->inventoryBatch;
+            if ($batch) {
+                $batch->update([
+                    'current_quantity' => $batch->current_quantity + $saleItem->quantity,
+                    'status' => 'active'
+                ]);
+            }
+        });
+    }
+
     public function sale()
     {
         return $this->belongsTo(Sale::class);

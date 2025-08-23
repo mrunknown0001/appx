@@ -83,7 +83,6 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, Auditable
 
     public function canAccessPanel(Panel $panel): bool
     {
-        \Log::info('Checking panel access for user: ' . $this->employee_id);
         return true;
     }
 
