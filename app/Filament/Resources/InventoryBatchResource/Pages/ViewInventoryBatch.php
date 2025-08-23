@@ -24,7 +24,7 @@ class ViewInventoryBatch extends ViewRecord
                 ->label('View Product')
                 ->icon('heroicon-o-cube')
                 ->url(fn (): string => 
-                    route('filament.admin.resources.products.view', $this->record->product)
+                    route('filament.app.resources.products.view', $this->record->product)
                 )
                 ->openUrlInNewTab(),
 
@@ -32,7 +32,7 @@ class ViewInventoryBatch extends ViewRecord
                 ->label('View Stock Entry')
                 ->icon('heroicon-o-document-text')
                 ->url(fn (): string => 
-                    route('filament.admin.resources.stock-entries.view', $this->record->stockEntry)
+                    route('filament.app.resources.stock-entries.view', $this->record->stockEntry)
                 )
                 ->openUrlInNewTab(),
         ];
@@ -165,7 +165,7 @@ class ViewInventoryBatch extends ViewRecord
                                         if ($daysUntilExpiry > -30) return 'warning'; // Expires soon
                                         return 'success';
                                     })
-                                    ->description(function ($record) {
+                                    ->helperText(function ($record) {
                                         $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
                                         if ($daysUntilExpiry > 0) {
                                             return "Expired " . $record->expiry_date->diffForHumans();
@@ -260,7 +260,7 @@ class ViewInventoryBatch extends ViewRecord
                                 TextEntry::make('updated_at')
                                     ->label('Last Updated')
                                     ->dateTime('M d, Y H:i:s')
-                                    ->description(fn ($record) => $record->updated_at->diffForHumans()),
+                                    ->helperText(fn ($record) => $record->updated_at->diffForHumans()),
                             ]),
                     ])
                     ->collapsible()

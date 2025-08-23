@@ -407,7 +407,7 @@ class InventoryBatchResource extends Resource
                         ->label('View Product')
                         ->icon('heroicon-o-cube')
                         ->url(fn (InventoryBatch $record): string => 
-                            route('filament.admin.resources.products.view', $record->product)
+                            route('filament.app.resources.products.view', $record->product)
                         )
                         ->openUrlInNewTab(),
 
@@ -415,7 +415,7 @@ class InventoryBatchResource extends Resource
                         ->label('View Stock Entry')
                         ->icon('heroicon-o-document-text')
                         ->url(fn (InventoryBatch $record): string => 
-                            route('filament.admin.resources.stock-entries.view', $record->stockEntry)
+                            route('filament.app.resources.stock-entries.view', $record->stockEntry)
                         )
                         ->openUrlInNewTab(),
 
