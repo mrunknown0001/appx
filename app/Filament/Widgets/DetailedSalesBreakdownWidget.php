@@ -184,7 +184,7 @@ class DetailedSalesBreakdownWidget extends Widget
         }
 
         // Top products insight
-        if (!empty($data['top_products'])) {
+        if (!empty($data['top_products'][0])) {
             $topProduct = $data['top_products'][0];
             $insights[] = [
                 'type' => 'success',
