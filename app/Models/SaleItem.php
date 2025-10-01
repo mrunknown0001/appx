@@ -35,7 +35,7 @@ class SaleItem extends Model
                 $newQuantity = $batch->current_quantity - $saleItem->quantity;
                 $batch->update([
                     'current_quantity' => max(0, $newQuantity),
-                    'status' => $newQuantity <= 0 ? 'depleted' : 'active'
+                    'status' => $newQuantity <= 0 ? 'out_of_stock' : 'active'
                 ]);
                 
                 \Log::info('Inventory updated via model event', [

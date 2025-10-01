@@ -44,7 +44,8 @@ class ListProducts extends ListRecords
                         ->groupBy('products.id')
                         ->havingRaw('total_stock <= products.min_stock_level');
                 })
-                ->badge(fn () => $this->getLowStockCount()),
+                ->badge(fn () => $this->getLowStockCount())
+                ->badgeColor('warning'),
             
             'out_of_stock' => Tab::make('Out of Stock')
                 ->modifyQueryUsing(function (Builder $query) {
@@ -58,7 +59,8 @@ class ListProducts extends ListRecords
                         ->groupBy('products.id')
                         ->havingRaw('total_stock = 0');
                 })
-                ->badge(fn () => $this->getOutOfStockCount()),
+                ->badge(fn () => $this->getOutOfStockCount())
+                ->badgeColor('danger'),
         ];
     }
 

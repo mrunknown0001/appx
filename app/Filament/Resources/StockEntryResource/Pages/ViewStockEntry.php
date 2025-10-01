@@ -68,15 +68,19 @@ class ViewStockEntry extends ViewRecord
                                     ->label('Expiry Date')
                                     ->date()
                                     ->badge()
-                                    ->color(fn ($record) => 
-                                        $record->expiry_date->isPast() ? 'danger' : 
-                                        ($record->expiry_date->diffInDays() <= 30 ? 'warning' : 'success')
-                                    )
-                                    ->formatStateUsing(fn ($record) => 
-                                        $record->expiry_date->format('M d, Y') . 
-                                        ($record->expiry_date->isPast() ? ' (Expired)' : 
-                                        ($record->expiry_date->diffInDays() <= 30 ? ' (Expires Soon)' : ''))
-                                    ),
+                                    ->color(function ($record) {
+                                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
+                                        if ($daysUntilExpiry > 0) return 'danger'; // Expired
+                                        if ($daysUntilExpiry > -30) return 'warning'; // Expires soon
+                                        return 'success';
+                                    })
+                                    ->formatStateUsing(function ($record)  {
+                                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
+                                        if ($daysUntilExpiry > 0) {
+                                            return "Expired " . $record->expiry_date->diffForHumans();
+                                        }
+                                        return "Expires " . $record->expiry_date->diffForHumans();
+                                    }),
                             ])
                     ]),
 

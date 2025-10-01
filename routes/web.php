@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Redirect / to /app
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/app');
 });

@@ -22,6 +22,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Actions\ActionGroup;
+use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
 
 class ProductCategoryResource extends Resource
@@ -39,6 +40,8 @@ class ProductCategoryResource extends Resource
     protected static ?string $navigationGroup = 'Product Management';
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Form $form): Form
     {
@@ -138,7 +141,7 @@ class ProductCategoryResource extends Resource
                     ->label('Created')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('updated_at')
                     ->label('Updated')
@@ -147,6 +150,21 @@ class ProductCategoryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\Filter::make('recent')
+                    ->label('Recently Created (7 days)')
+                    ->query(fn (Builder $query): Builder => 
+                        $query->where('created_at', '>=', now()->subDays(7))
+                    )
+                    ->toggle(),
+
+                Tables\Filters\Filter::make('this_month')
+                    ->label('Created This Month')
+                    ->query(fn (Builder $query): Builder => 
+                        $query->whereMonth('created_at', now()->month)
+                            ->whereYear('created_at', now()->year)
+                    )
+                    ->toggle(),
+
                 SelectFilter::make('parent_id')
                     ->label('Parent Category')
                     ->options([
@@ -173,15 +191,101 @@ class ProductCategoryResource extends Resource
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make()
-                        ->before(function (ProductCategory $record) {
-                            // Check if category has products or subcategories
-                            if ($record->products()->count() > 0) {
-                                throw new \Exception('Cannot delete category that has products assigned to it.');
-                            }
+                        ->modalHeading('Delete Category')
+                        ->form(function (ProductCategory $record) {
+                            // Check for subcategories first
                             if ($record->children()->count() > 0) {
-                                throw new \Exception('Cannot delete category that has subcategories.');
+                                return [
+                                    Forms\Components\Placeholder::make('error')
+                                        ->content('This category has subcategories and cannot be deleted. Please delete or move subcategories first.')
+                                        ->extraAttributes(['class' => 'text-danger-600']),
+                                ];
                             }
-                        }),
+                            
+                            // Check for products
+                            $productCount = $record->products()->count();
+                            
+                            if ($productCount > 0) {
+                                return [
+                                    Forms\Components\Section::make()
+                                        ->heading("This category has {$productCount} product(s)")
+                                        ->description('Choose how to handle the products before deleting this category')
+                                        ->schema([
+                                            Forms\Components\Radio::make('products_action')
+                                                ->label('What should we do with the products?')
+                                                ->options([
+                                                    'move' => 'Move products to another category',
+                                                    'delete' => 'Delete all products',
+                                                ])
+                                                ->default('move')
+                                                ->required()
+                                                ->live(),
+                                            
+                                            Forms\Components\Select::make('target_category_id')
+                                                ->label('Move products to')
+                                                ->options(function (ProductCategory $record) {
+                                                    return ProductCategory::where('is_active', true)
+                                                        ->where('id', '!=', $record->id)
+                                                        ->pluck('name', 'id');
+                                                })
+                                                ->searchable()
+                                                ->required()
+                                                ->visible(fn ($get) => $get('products_action') === 'move')
+                                                ->placeholder('Select a category'),
+                                            
+                                            Forms\Components\Placeholder::make('warning')
+                                                ->content('⚠️ All products in this category will be permanently deleted!')
+                                                ->visible(fn ($get) => $get('products_action') === 'delete'),
+                                        ]),
+                                ];
+                            }
+                            
+                            return [];
+                        })
+                        ->action(function (ProductCategory $record, array $data) {
+                            // Prevent deletion if has subcategories
+                            if ($record->children()->count() > 0) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Cannot Delete')
+                                    ->body('This category has subcategories.')
+                                    ->send();
+                                return;
+                            }
+                            
+                            // Handle products
+                            if ($record->products()->count() > 0) {
+                                if (isset($data['products_action'])) {
+                                    if ($data['products_action'] === 'move' && isset($data['target_category_id'])) {
+                                        $movedCount = $record->products()->count();
+                                        $record->products()->update(['product_category_id' => $data['target_category_id']]);
+                                        
+                                        Notification::make()
+                                            ->success()
+                                            ->title("{$movedCount} product(s) moved")
+                                            ->send();
+                                    } elseif ($data['products_action'] === 'delete') {
+                                        $deletedCount = $record->products()->count();
+                                        $record->products()->delete();
+                                        
+                                        Notification::make()
+                                            ->warning()
+                                            ->title("{$deletedCount} product(s) deleted")
+                                            ->send();
+                                    }
+                                }
+                            }
+                            
+                            // Delete the category
+                            $record->delete();
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Category Deleted')
+                                ->body('The category has been successfully deleted.')
+                                ->send();
+                        })
+                        ->requiresConfirmation(),
                     Tables\Actions\RestoreAction::make(),
                     Tables\Actions\ForceDeleteAction::make(),
                 ])

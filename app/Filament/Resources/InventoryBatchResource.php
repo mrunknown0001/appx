@@ -34,6 +34,11 @@ class InventoryBatchResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -89,7 +94,7 @@ class InventoryBatchResource extends Resource
                                     ->options([
                                         'active' => 'Active',
                                         'expired' => 'Expired',
-                                        'depleted' => 'Depleted',
+                                        'out_of_stock' => 'Out of Stock',
                                     ])
                                     ->default('active')
                                     ->required(),
@@ -248,8 +253,11 @@ class InventoryBatchResource extends Resource
                     ->colors([
                         'success' => 'active',
                         'danger' => 'expired',
-                        'warning' => 'depleted',
+                        'danger' => 'out_of_stock',
                     ])
+                    ->formatStateUsing(function ($state) {
+                        return ucfirst(str_replace('_', ' ', $state));
+                    })
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('location')
@@ -270,7 +278,7 @@ class InventoryBatchResource extends Resource
                     ->options([
                         'active' => 'Active',
                         'expired' => 'Expired',
-                        'depleted' => 'Depleted',
+                        'out_of_stock' => 'Out of Stock',
                     ])
                     ->multiple(),
 
@@ -341,7 +349,7 @@ class InventoryBatchResource extends Resource
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
-                    Tables\Actions\EditAction::make(),
+                    // Tables\Actions\EditAction::make(),
                     
                     Tables\Actions\Action::make('adjust_quantity')
                         ->label('Adjust Quantity')
@@ -373,7 +381,7 @@ class InventoryBatchResource extends Resource
 
                             $record->update([
                                 'current_quantity' => $newQuantity,
-                                'status' => $newQuantity == 0 ? 'depleted' : $record->status,
+                                'status' => $newQuantity == 0 ? 'out_of_stock' : 'active',
                             ]);
 
                             // Log the adjustment (you might want to create an audit log)

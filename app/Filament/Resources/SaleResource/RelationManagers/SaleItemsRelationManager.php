@@ -268,7 +268,7 @@ class SaleItemsRelationManager extends RelationManager
                             
                             $batch->update([
                                 'current_quantity' => max(0, $newQuantity), // Ensure we don't go negative
-                                'status' => $newQuantity <= 0 ? 'depleted' : 'active'
+                                'status' => $newQuantity <= 0 ? 'out_of_stock' : 'active'
                             ]);
                             
                             // Verify the update worked
@@ -320,7 +320,7 @@ class SaleItemsRelationManager extends RelationManager
                                     $newQuantity = $batch->current_quantity - $quantityDifference;
                                     $batch->update([
                                         'current_quantity' => max(0, $newQuantity),
-                                        'status' => $newQuantity <= 0 ? 'depleted' : 'active'
+                                        'status' => $newQuantity <= 0 ? 'out_of_stock' : 'active'
                                     ]);
                                 }
                             }
