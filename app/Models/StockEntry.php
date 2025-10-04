@@ -19,7 +19,8 @@ class StockEntry extends Model
         'total_cost',
         'expiry_date',
         'batch_number',
-        'notes'
+        'notes',
+        'selling_price'
     ];
 
     protected $casts = [
@@ -27,7 +28,8 @@ class StockEntry extends Model
         'expiry_date' => 'date',
         'quantity_received' => 'integer',
         'unit_cost' => 'decimal:2',
-        'total_cost' => 'decimal:2'
+        'total_cost' => 'decimal:2',
+        'selling_price' => 'decimal:2'
     ];
 
     public function product()

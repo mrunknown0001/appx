@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('tax_amount', 10, 2)->default(0);
             $table->decimal('discount_amount', 10, 2)->default(0);
             $table->decimal('total_amount', 12, 2);
-            $table->enum('payment_method', ['cash', 'card', 'digital_wallet', 'bank_transfer', 'credit'])->default('cash');
+            $table->enum('payment_method', ['cash', 'credit_card', 'gcash', 'maya'])->default('cash');
             $table->enum('status', ['pending', 'completed', 'cancelled', 'refunded'])->default('completed');
             $table->text('notes')->nullable();
             $table->timestamps();

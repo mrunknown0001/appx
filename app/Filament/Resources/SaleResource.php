@@ -461,17 +461,15 @@ class SaleResource extends Resource
                     ->label('Payment')
                     ->colors([
                         'success' => 'cash',
-                        'primary' => 'card',
-                        'warning' => 'digital_wallet',
-                        'info' => 'bank_transfer',
-                        'secondary' => 'credit',
+                        'primary' => 'credit_card',
+                        'warning' => 'gcash',
+                        'danger' => 'maya',
                     ])
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cash' => 'Cash',
-                        'card' => 'Card',
-                        'digital_wallet' => 'Digital Wallet',
-                        'bank_transfer' => 'Bank Transfer',
-                        'credit' => 'Credit',
+                        'credit_card' => 'Card',
+                        'gcash' => 'GCash',
+                        'maya' => 'Maya',
                         default => $state,
                     }),
 

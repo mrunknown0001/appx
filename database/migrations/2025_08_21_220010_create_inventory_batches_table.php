@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('current_quantity');
             $table->date('expiry_date');
             $table->string('location')->nullable();
-            $table->enum('status', ['active', 'expired', 'depleted'])->default('active');
+            $table->enum('status', ['active', 'expired', 'out_of_stock'])->default('active');
             $table->timestamps();
 
             $table->index(['product_id', 'status']);
