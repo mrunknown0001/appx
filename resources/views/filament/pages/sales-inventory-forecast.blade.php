@@ -51,25 +51,123 @@
                             {{-- Forecast Chart --}}
                             <div class="grid md:grid-cols-2 gap-6">
                                 {{-- Quantity Forecast --}}
-                                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4" 
+                                    wire:key="quantity-chart-{{ $productId }}-{{ now()->timestamp }}">
                                     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                                         Quantity Forecast
                                     </h4>
                                     <div class="h-64" 
-                                         x-data="quantityChart(@js($forecast['historical_quantities']), @js($forecast['forecasted_quantities']), @js($forecast['forecast_dates']))"
-                                         x-init="initChart()">
+                                        x-data="{
+                                            chart: null,
+                                            forecasted: @js($forecast['forecasted_quantities']),
+                                            dates: @js($forecast['forecast_dates']),
+                                            initChart() {
+                                                const ctx = this.$refs.chart;
+                                                
+                                                if (this.chart) {
+                                                    this.chart.destroy();
+                                                }
+                                                
+                                                const existingChart = Chart.getChart(ctx);
+                                                if (existingChart) {
+                                                    existingChart.destroy();
+                                                }
+                                                
+                                                this.chart = new Chart(ctx, {
+                                                    type: 'line',
+                                                    data: {
+                                                        labels: this.dates,
+                                                        datasets: [{
+                                                            label: 'Forecasted Quantity',
+                                                            data: this.forecasted,
+                                                            borderColor: 'rgb(59, 130, 246)',
+                                                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                            tension: 0.4,
+                                                            fill: true
+                                                        }]
+                                                    },
+                                                    options: {
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: true, position: 'top' }
+                                                        },
+                                                        scales: {
+                                                            y: { beginAtZero: true }
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }"
+                                        x-init="initChart()">
                                         <canvas x-ref="chart"></canvas>
                                     </div>
                                 </div>
 
                                 {{-- Revenue Forecast --}}
-                                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4" 
+                                    wire:key="revenue-chart-{{ $productId }}-{{ now()->timestamp }}">
                                     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                                         Revenue Forecast
                                     </h4>
                                     <div class="h-64" 
-                                         x-data="revenueChart(@js($forecast['historical_revenues']), @js($forecast['forecasted_revenues']), @js($forecast['forecast_dates']))"
-                                         x-init="initChart()">
+                                        x-data="{
+                                            chart: null,
+                                            forecasted: @js($forecast['forecasted_revenues']),
+                                            dates: @js($forecast['forecast_dates']),
+                                            initChart() {
+                                                const ctx = this.$refs.chart;
+                                                
+                                                if (this.chart) {
+                                                    this.chart.destroy();
+                                                }
+                                                
+                                                const existingChart = Chart.getChart(ctx);
+                                                if (existingChart) {
+                                                    existingChart.destroy();
+                                                }
+                                                
+                                                this.chart = new Chart(ctx, {
+                                                    type: 'line',
+                                                    data: {
+                                                        labels: this.dates,
+                                                        datasets: [{
+                                                            label: 'Forecasted Revenue',
+                                                            data: this.forecasted,
+                                                            borderColor: 'rgb(16, 185, 129)',
+                                                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                            tension: 0.4,
+                                                            fill: true
+                                                        }]
+                                                    },
+                                                    options: {
+                                                        responsive: true,
+                                                        maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: true, position: 'top' },
+                                                            tooltip: {
+                                                                callbacks: {
+                                                                    label: function(context) {
+                                                                        return '₱' + context.parsed.y.toFixed(2);
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        scales: {
+                                                            y: {
+                                                                beginAtZero: true,
+                                                                ticks: {
+                                                                    callback: function(value) {
+                                                                        return '₱' + value.toFixed(0);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }"
+                                        x-init="initChart()">
                                         <canvas x-ref="chart"></canvas>
                                     </div>
                                 </div>
@@ -217,97 +315,7 @@
             @endif
         @endif
     </div>
-
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script>
-        function quantityChart(historical, forecasted, dates) {
-            return {
-                chart: null,
-                initChart() {
-                    const ctx = this.$refs.chart;
-                    this.chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: dates,
-                            datasets: [{
-                                label: 'Forecasted Quantity',
-                                data: forecasted,
-                                borderColor: 'rgb(59, 130, 246)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'top'
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-        }
-
-        function revenueChart(historical, forecasted, dates) {
-            return {
-                chart: null,
-                initChart() {
-                    const ctx = this.$refs.chart;
-                    this.chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: dates,
-                            datasets: [{
-                                label: 'Forecasted Revenue',
-                                data: forecasted,
-                                borderColor: 'rgb(16, 185, 129)',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'top'
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            return '₱' + context.parsed.y.toFixed(2);
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return '₱' + value.toFixed(0);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-        }
-    </script>
     @endpush
 </x-filament-panels::page>
