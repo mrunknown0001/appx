@@ -25,6 +25,7 @@ class Login extends BaseLogin
                     
                 TextInput::make('password')
                     ->label('Password')
+                    ->revealable()
                     ->password()
                     ->required(),
                     
@@ -36,7 +37,7 @@ class Login extends BaseLogin
 
     protected function getCredentialsFromFormData(array $data): array
     {
-        Log::info('Getting credentials for employee_id: ' . $data['employee_id']);
+        // Log::info('Getting credentials for employee_id: ' . $data['employee_id']);
         
         // Find user by employee_id
         $user = User::where('employee_id', $data['employee_id'])->first();

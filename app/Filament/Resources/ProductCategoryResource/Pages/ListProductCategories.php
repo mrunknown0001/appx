@@ -23,8 +23,8 @@ class ListProductCategories extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All Categories')
-                ->badge(fn () => \App\Models\ProductCategory::count()),
+            // 'all' => Tab::make('All Categories')
+            //     ->badge(fn () => \App\Models\ProductCategory::count()),
             
             'main' => Tab::make('Main Categories')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereNull('parent_id'))
@@ -40,7 +40,8 @@ class ListProductCategories extends ListRecords
             
             'inactive' => Tab::make('Inactive')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', false))
-                ->badge(fn () => \App\Models\ProductCategory::where('is_active', false)->count()),
+                ->badge(fn () => \App\Models\ProductCategory::where('is_active', false)->count())
+                ->badgeColor('warning'),
         ];
     }
 }

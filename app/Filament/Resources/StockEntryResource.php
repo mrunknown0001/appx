@@ -131,6 +131,14 @@ class StockEntryResource extends Resource
                                     ->step(0.01)
                                     ->readOnly()
                                     ->helperText('Automatically calculated'),
+
+                                TextInput::make('selling_price')
+                                    ->label('Selling Price')
+                                    ->required()
+                                    ->numeric()
+                                    ->prefix('₱')
+                                    ->minValue(0.01)
+                                    ->step(0.01),
                             ])
                             ->columns(3),
                     ]),
@@ -212,15 +220,19 @@ class StockEntryResource extends Resource
                     ->date()
                     ->sortable()
                     ->badge()
-                    ->color(fn (StockEntry $record): string => 
-                        $record->expiry_date->isPast() ? 'danger' : 
-                        ($record->expiry_date->diffInDays() <= 30 ? 'warning' : 'success')
-                    )
-                    ->formatStateUsing(fn (StockEntry $record): string => 
-                        $record->expiry_date->format('M d, Y') . 
-                        ($record->expiry_date->isPast() ? ' (Expired)' : 
-                        ($record->expiry_date->diffInDays() <= 30 ? ' (Expires Soon)' : ''))
-                    ),
+                    ->color(function ($record) {
+                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
+                        if ($daysUntilExpiry > 0) return 'danger'; // Expired
+                        if ($daysUntilExpiry > -30) return 'warning'; // Expires soon
+                        return 'success';
+                    })
+                    ->description(function ($record) {
+                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
+                        if ($daysUntilExpiry > 0) {
+                            return "Expired " . $record->expiry_date->diffForHumans();
+                        }
+                        return "Expires " . $record->expiry_date->diffForHumans();
+                    }),
 
                 TextColumn::make('batch_number')
                     ->label('Batch')

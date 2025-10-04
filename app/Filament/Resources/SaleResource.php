@@ -7,6 +7,7 @@ use App\Filament\Resources\SaleResource\RelationManagers;
 use App\Models\Sale;
 use App\Models\Product;
 use App\Models\InventoryBatch;
+use App\Models\StockEntry;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -34,6 +35,7 @@ use Filament\Forms\Set;
 use Illuminate\Support\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
+use Closure;
 
 
 class SaleResource extends Resource
@@ -53,6 +55,34 @@ class SaleResource extends Resource
     protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'sale_number';
+
+    // Helper function to calculate subtotal from sale items
+    protected static function calculateSubtotal(Get $get): float
+    {
+        $saleItems = $get('saleItems') ?? [];
+        $subtotal = 0;
+
+        foreach ($saleItems as $item) {
+            $quantity = (float) ($item['quantity'] ?? 0);
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $discountAmount = (float) ($item['discount_amount'] ?? 0);
+            
+            $itemTotal = ($quantity * $unitPrice) - $discountAmount;
+            $subtotal += max(0, $itemTotal);
+        }
+
+        return $subtotal;
+    }
+
+    // Helper function to calculate final total
+    protected static function calculateTotal(Get $get): float
+    {
+        $subtotal = (float) $get('subtotal');
+        $taxAmount = (float) ($get('tax_amount') ?? 0);
+        $discountAmount = (float) ($get('discount_amount') ?? 0);
+        
+        return max(0, $subtotal + $taxAmount - $discountAmount);
+    }
 
     public static function form(Form $form): Form
     {
@@ -120,10 +150,7 @@ class SaleResource extends Resource
                                             ->maxLength(1000)
                                             ->columnSpanFull(),
                                     ]),
-                            ]),
 
-                        Tabs\Tab::make('Sale Items')
-                            ->schema([
                                 Section::make('Products Sold')
                                     ->schema([
                                         Repeater::make('saleItems')
@@ -144,11 +171,26 @@ class SaleResource extends Resource
                                                                     $product = Product::find($state);
                                                                     if ($product) {
                                                                         $set('unit_price', $product->getCurrentPrice());
-                                                                        // Update available batches
                                                                         $set('inventory_batch_id', null);
                                                                     }
                                                                 }
-                                                            }),
+                                                            })
+                                                            ->rules([
+                                                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                                                    $inventoryBatchId = $get('inventory_batch_id');
+                                                                    if (!$inventoryBatchId) return;
+
+                                                                    $items = collect($get('../../saleItems'));
+                                                                    $duplicates = $items->filter(fn ($item) => 
+                                                                        $item['product_id'] == $value && 
+                                                                        $item['inventory_batch_id'] == $inventoryBatchId
+                                                                    );
+                                                                    
+                                                                    if ($duplicates->count() > 1) {
+                                                                        $fail('This product and inventory batch combination already exists.');
+                                                                    }
+                                                                },
+                                                            ]),
 
                                                         Select::make('inventory_batch_id')
                                                             ->label('Batch')
@@ -166,9 +208,42 @@ class SaleResource extends Resource
                                                                     ->get()
                                                                     ->pluck('batch_number', 'id');
                                                             })
+                                                            ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                                                if ($state) {
+                                                                    $batch = InventoryBatch::find($state);
+                                                                    $product_id = $get('product_id');
+                                                                    $stockEntry = StockEntry::where('product_id', $product_id)
+                                                                        ->where('batch_number', $batch->batch_number)
+                                                                        ->whereNotNull('selling_price')
+                                                                        ->latest()
+                                                                        ->first();
+                                                                    if ($stockEntry) {
+                                                                        $set('unit_price', $stockEntry->selling_price);
+                                                                    }
+                                                                    else {
+                                                                        $set('unit_price', 0);
+                                                                    }
+                                                                }
+                                                            })
                                                             ->required()
                                                             ->searchable()
-                                                            ->preload(),
+                                                            ->preload()
+                                                            ->rules([
+                                                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                                                    $productId = $get('product_id');
+                                                                    if (!$productId) return;
+
+                                                                    $items = collect($get('../../saleItems'));
+                                                                    $duplicates = $items->filter(fn ($item) => 
+                                                                        $item['product_id'] == $productId && 
+                                                                        $item['inventory_batch_id'] == $value
+                                                                    );
+                                                                    
+                                                                    if ($duplicates->count() > 1) {
+                                                                        $fail('This product and inventory batch combination already exists.');
+                                                                    }
+                                                                },
+                                                            ]),
 
                                                         TextInput::make('quantity')
                                                             ->required()
@@ -177,10 +252,36 @@ class SaleResource extends Resource
                                                             ->minValue(1)
                                                             ->live(debounce: 500)
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                                                $state = (int) $state;
+                                                                $product_id = $get('product_id');
+                                                                $current_batch = InventoryBatch::find($get('inventory_batch_id'));
+                                                                if (!$product_id || !$current_batch) {
+                                                                    $set('quantity', 1);
+                                                                    $set('total_price', 0);
+                                                                    return;
+                                                                }
+                                                                $batch = InventoryBatch::where('batch_number', $current_batch->batch_number)
+                                                                    ->where('product_id', $product_id)
+                                                                    ->first();
+
                                                                 $unitPrice = (float) $get('unit_price');
                                                                 $discountAmount = (float) $get('discount_amount');
-                                                                $total = ($state * $unitPrice) - $discountAmount;
-                                                                $set('total_price', number_format($total, 2, '.', ''));
+
+                                                                if($state > $batch->current_quantity) {
+                                                                    $set('quantity', $batch->current_quantity);
+                                                                    Notification::make()
+                                                                        ->warning()
+                                                                        ->title('Insufficient Stock')
+                                                                        ->body("Only {$batch->current_quantity} units available in selected batch.")
+                                                                        ->send();
+                                                                    $total = ($batch->current_quantity * $unitPrice) - $discountAmount;
+                                                                    $set('total_price', number_format(max(0, $total), 2, '.', ''));
+                                                                }
+                                                                else {
+                                                                    $total = ($state * $unitPrice) - $discountAmount;
+                                                                    $set('total_price', number_format(max(0, $total), 2, '.', ''));
+                                                                }
+
                                                             }),
 
                                                         TextInput::make('unit_price')
@@ -193,7 +294,7 @@ class SaleResource extends Resource
                                                                 $quantity = (int) $get('quantity');
                                                                 $discountAmount = (float) $get('discount_amount');
                                                                 $total = ($quantity * $state) - $discountAmount;
-                                                                $set('total_price', number_format($total, 2, '.', ''));
+                                                                $set('total_price', number_format(max(0, $total), 2, '.', ''));
                                                             }),
                                                     ]),
 
@@ -209,7 +310,7 @@ class SaleResource extends Resource
                                                                 $quantity = (int) $get('quantity');
                                                                 $unitPrice = (float) $get('unit_price');
                                                                 $total = ($quantity * $unitPrice) - $state;
-                                                                $set('total_price', number_format($total, 2, '.', ''));
+                                                                $set('total_price', number_format(max(0, $total), 2, '.', ''));
                                                             }),
 
                                                         TextInput::make('total_price')
@@ -226,6 +327,26 @@ class SaleResource extends Resource
                                             ->defaultItems(1)
                                             ->itemLabel(fn (array $state): ?string => 
                                                 $state['product_id'] ? Product::find($state['product_id'])?->name : 'New Item'
+                                            )
+                                            ->live()
+                                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                                // Recalculate subtotal when items change
+                                                $subtotal = self::calculateSubtotal($get);
+                                                $set('subtotal', number_format($subtotal, 2, '.', ''));
+                                                
+                                                // Recalculate total
+                                                $total = self::calculateTotal($get);
+                                                $set('total_amount', number_format($total, 2, '.', ''));
+                                            })
+                                            ->deleteAction(
+                                                fn ($action) => $action->after(function (Get $get, Set $set) {
+                                                    // Recalculate after deletion
+                                                    $subtotal = self::calculateSubtotal($get);
+                                                    $set('subtotal', number_format($subtotal, 2, '.', ''));
+                                                    
+                                                    $total = self::calculateTotal($get);
+                                                    $set('total_amount', number_format($total, 2, '.', ''));
+                                                })
                                             ),
                                     ]),
                             ]),
@@ -237,55 +358,59 @@ class SaleResource extends Resource
                                         Grid::make(2)
                                             ->schema([
                                                 TextInput::make('subtotal')
+                                                    ->label('Subtotal (Items Total)')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->readOnly()
                                                     ->dehydrated()
+                                                    ->default(0)
                                                     ->formatStateUsing(fn ($state) => number_format($state ?? 0, 2))
                                                     ->extraAttributes(['class' => 'font-bold'])
-                                                    ->live(),
+                                                    ->helperText('Automatically calculated from items'),
 
                                                 TextInput::make('tax_amount')
+                                                    ->label('Tax Amount')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->default(0)
                                                     ->minValue(0)
                                                     ->live(debounce: 500)
                                                     ->afterStateUpdated(function (Get $get, Set $set) {
-                                                        $subtotal = (float) $get('subtotal');
-                                                        $tax = (float) $get('tax_amount');
-                                                        $discount = (float) $get('discount_amount');
-                                                        $total = $subtotal + $tax - $discount;
-                                                        $set('total_amount', max(0, $total));
-                                                    }),
+                                                        $total = self::calculateTotal($get);
+                                                        $set('total_amount', number_format($total, 2, '.', ''));
+                                                    })
+                                                    ->helperText('Additional tax (optional)'),
 
                                                 TextInput::make('discount_amount')
+                                                    ->label('Sale-Level Discount')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->default(0)
                                                     ->minValue(0)
                                                     ->live(debounce: 500)
                                                     ->afterStateUpdated(function (Get $get, Set $set) {
-                                                        $subtotal = (float) $get('subtotal');
-                                                        $tax = (float) $get('tax_amount');
-                                                        $discount = (float) $get('discount_amount');
-                                                        $total = $subtotal + $tax - $discount;
-                                                        $set('total_amount', max(0, $total));
-                                                    }),
+                                                        $total = self::calculateTotal($get);
+                                                        $set('total_amount', number_format($total, 2, '.', ''));
+                                                    })
+                                                    ->helperText('Overall sale discount (optional)'),
 
                                                 TextInput::make('total_amount')
+                                                    ->label('Total Amount')
                                                     ->numeric()
                                                     ->prefix('₱')
                                                     ->readOnly()
                                                     ->dehydrated()
+                                                    ->default(0)
                                                     ->formatStateUsing(fn ($state) => number_format($state ?? 0, 2))
-                                                    ->extraAttributes(['class' => 'font-bold text-green-600'])
-                                                    ->live(),
+                                                    ->extraAttributes(['class' => 'font-bold text-green-600 text-xl'])
+                                                    ->helperText('Final amount to be paid'),
                                             ]),
 
                                         Placeholder::make('calculation_info')
-                                            ->content('Totals will be automatically calculated based on sale items. Tax and discount can be adjusted above.')
-                                            ->columnSpanFull(),
+                                            ->label('Calculation Formula')
+                                            ->content('Total = Subtotal + Tax - Discount')
+                                            ->columnSpanFull()
+                                            ->extraAttributes(['class' => 'text-sm text-gray-600']),
                                     ])
                                     ->extraAttributes(['id' => 'sale-summary-section']),
                             ]),

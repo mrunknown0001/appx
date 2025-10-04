@@ -52,7 +52,8 @@ class Product extends Model
 
     public function inventoryBatches()
     {
-        return $this->hasMany(InventoryBatch::class);
+        // return $this->hasMany(InventoryBatch::class);
+        return $this->hasMany(InventoryBatch::class)->where('expiry_date', '>', now())->where('status', 'active');
     }
 
     public function priceHistory()

@@ -43,10 +43,10 @@ class ListInventoryBatches extends ListRecords
             
             'out_of_stock' => Tab::make('Out of Stock')
                 ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->where('current_quantity', '<=', 0)->where('status', 'active')
+                    $query->where('current_quantity', '<=', 0)->where('status', 'out_of_stock')
                 )
                 ->badge(fn () => InventoryBatch::where('current_quantity', '<=', 0)
-                    ->where('status', 'active')->count())
+                    ->where('status', 'out_of_stock')->count())
                 ->badgeColor('danger'),
             
             'expiring_soon' => Tab::make('Expiring Soon')
@@ -65,10 +65,10 @@ class ListInventoryBatches extends ListRecords
                 ->badge(fn () => $this->getExpiredCount())
                 ->badgeColor('danger'),
             
-            'depleted' => Tab::make('Depleted')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'depleted'))
-                ->badge(fn () => InventoryBatch::where('status', 'depleted')->count())
-                ->badgeColor('gray'),
+            // 'depleted' => Tab::make('Depleted')
+            //     ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'depleted'))
+            //     ->badge(fn () => InventoryBatch::where('status', 'depleted')->count())
+            //     ->badgeColor('gray'),
         ];
     }
 
