@@ -82,20 +82,20 @@ class SalesPeriodSummaryWidget extends BaseWidget
                 ]),
 
             // Additional metrics row
-            Stat::make('WTD Transactions', number_format($weekSales['transactions']))
-                ->description('Avg: ₱' . number_format($weekSales['transactions'] > 0 ? $weekSales['revenue'] / $weekSales['transactions'] : 0, 2))
-                ->descriptionIcon('heroicon-m-calculator')
-                ->color('gray'),
+            // Stat::make('WTD Transactions', number_format($weekSales['transactions']))
+            //     ->description('Avg: ₱' . number_format($weekSales['transactions'] > 0 ? $weekSales['revenue'] / $weekSales['transactions'] : 0, 2))
+            //     ->descriptionIcon('heroicon-m-calculator')
+            //     ->color('gray'),
 
-            Stat::make('MTD Transactions', number_format($monthSales['transactions']))
-                ->description('Avg: ₱' . number_format($monthSales['transactions'] > 0 ? $monthSales['revenue'] / $monthSales['transactions'] : 0, 2))
-                ->descriptionIcon('heroicon-m-calculator')
-                ->color('gray'),
+            // Stat::make('MTD Transactions', number_format($monthSales['transactions']))
+            //     ->description('Avg: ₱' . number_format($monthSales['transactions'] > 0 ? $monthSales['revenue'] / $monthSales['transactions'] : 0, 2))
+            //     ->descriptionIcon('heroicon-m-calculator')
+            //     ->color('gray'),
 
-            Stat::make('YTD Transactions', number_format($yearSales['transactions']))
-                ->description('Avg: ₱' . number_format($yearSales['transactions'] > 0 ? $yearSales['revenue'] / $yearSales['transactions'] : 0, 2))
-                ->descriptionIcon('heroicon-m-calculator')
-                ->color('gray'),
+            // Stat::make('YTD Transactions', number_format($yearSales['transactions']))
+            //     ->description('Avg: ₱' . number_format($yearSales['transactions'] > 0 ? $yearSales['revenue'] / $yearSales['transactions'] : 0, 2))
+            //     ->descriptionIcon('heroicon-m-calculator')
+            //     ->color('gray'),
         ];
     }
 

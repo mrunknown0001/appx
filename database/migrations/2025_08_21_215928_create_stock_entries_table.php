@@ -17,6 +17,7 @@ return new class extends Migration
             $table->integer('quantity_received');
             $table->decimal('unit_cost', 10, 2);
             $table->decimal('total_cost', 12, 2);
+            $table->decimal('selling_price', 10, 2)->nullable();
             $table->date('expiry_date');
             $table->string('batch_number')->nullable();
             $table->text('notes')->nullable();
