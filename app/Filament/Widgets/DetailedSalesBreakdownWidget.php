@@ -189,7 +189,9 @@ class DetailedSalesBreakdownWidget extends Widget
             $insights[] = [
                 'type' => 'success',
                 'title' => 'Best Seller',
-                'message' => $topProduct->product->name . ' (₱' . number_format($topProduct->total_revenue, 2) . ')',
+                // TODO Removed since the value is not correct
+                // 'message' => $topProduct->product->name . ' (₱' . number_format($topProduct->total_revenue, 2) . ')',
+                'message' => $topProduct->product->name,
                 'icon' => 'heroicon-o-trophy',
             ];
         }
