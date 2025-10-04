@@ -65,14 +65,14 @@ class SampleSalesDataSeeder extends Seeder
                     'updated_at' => $saleDate,
                 ]);
 
-                // Add 1-5 products to this sale
-                $itemsCount = rand(1, 5);
+                // Add 1-5 products to this sale (but max available products)
+                $itemsCount = rand(1, min(5, $products->count()));
                 $subtotal = 0;
 
-                for ($j = 0; $j < $itemsCount; $j++) {
-                    // Random product
-                    $product = $products->random();
-                    
+                // Get unique random products for this sale
+                $selectedProducts = $products->shuffle()->take($itemsCount);
+
+                foreach ($selectedProducts as $product) {
                     // Get an active batch for this product
                     $batch = $product->inventoryBatches()
                         ->where('status', 'active')
