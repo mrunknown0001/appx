@@ -5,6 +5,8 @@ namespace App\Filament\Widgets;
 use Filament\Widgets\Widget;
 use App\Services\PharmacyAnalyticsService;
 use Carbon\Carbon;
+use Filament\Support\Facades\FilamentAsset; 
+use Filament\Support\Assets\Js; 
 
 class DetailedSalesBreakdownWidget extends Widget
 {
@@ -13,6 +15,17 @@ class DetailedSalesBreakdownWidget extends Widget
     protected int | string | array $columnSpan = 'full';
     
     public ?string $selectedPeriod = 'month';
+
+
+    public function getFooter(): ?string
+    {
+        // This tells Filament to load Chart.js for this widget
+        FilamentAsset::register([
+            Js::make('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'),
+        ], 'app');
+        
+        return null;
+    }
 
     public function getViewData(): array
     {
@@ -69,7 +82,10 @@ class DetailedSalesBreakdownWidget extends Widget
     private function formatChartData(array $breakdown): array
     {
         return [
-            'labels' => array_map(fn($item) => $item['day_short'] ?? date('M j', strtotime($item['date'])), $breakdown),
+            'labels' => array_map(
+                fn($item) => $item['day_short'] ?? date('M j', strtotime($item['date'] ?? 'now')), 
+                $breakdown
+            ),
             'revenue' => array_column($breakdown, 'revenue'),
             'transactions' => array_column($breakdown, 'transactions'),
         ];
@@ -119,8 +135,7 @@ class DetailedSalesBreakdownWidget extends Widget
     private function generateWeeklyInsights(array $data): array
     {
         $insights = [];
-        $current = $data['current'];
-        $breakdown = $data['daily_breakdown'];
+        $breakdown = $data['daily_breakdown'] ?? [];
 
         // Peak day analysis
         if (!empty($breakdown)) {
@@ -134,14 +149,14 @@ class DetailedSalesBreakdownWidget extends Widget
         }
 
         // Weekly performance
-        if ($data['change_percent'] > 20) {
+        if (($data['change_percent'] ?? 0) > 20) {
             $insights[] = [
                 'type' => 'success',
                 'title' => 'Exceptional Growth',
                 'message' => 'Weekly revenue increased by ' . number_format($data['change_percent'], 1) . '%',
                 'icon' => 'heroicon-o-arrow-trending-up',
             ];
-        } elseif ($data['change_percent'] < -20) {
+        } elseif (($data['change_percent'] ?? 0) < -20) {
             $insights[] = [
                 'type' => 'warning',
                 'title' => 'Significant Decline',
@@ -156,7 +171,7 @@ class DetailedSalesBreakdownWidget extends Widget
     private function generateMonthlyInsights(array $data): array
     {
         $insights = [];
-        $current = $data['current'];
+        $current = $data['current'] ?? [];
 
         // Monthly progress
         $daysInMonth = Carbon::now()->daysInMonth;
@@ -165,13 +180,13 @@ class DetailedSalesBreakdownWidget extends Widget
         
         $insights[] = [
             'type' => 'info',
-            'title' => 'Monthly Progress',
+            'title' =>  Carbon::now()->monthName . ' ' . Carbon::now()->year . ' Progress',
             'message' => number_format($progressPercentage, 1) . "% of the month completed ({$daysPassed}/{$daysInMonth} days)",
             'icon' => 'heroicon-o-calendar-days',
         ];
 
         // Run rate analysis
-        if ($current['revenue'] > 0 && $daysPassed > 0) {
+        if (($current['revenue'] ?? 0) > 0 && $daysPassed > 0) {
             $dailyAverage = $current['revenue'] / $daysPassed;
             $projectedMonthly = $dailyAverage * $daysInMonth;
             
@@ -189,7 +204,8 @@ class DetailedSalesBreakdownWidget extends Widget
             $insights[] = [
                 'type' => 'success',
                 'title' => 'Best Seller',
-                'message' => $topProduct->product->name . ' (₱' . number_format($topProduct->total_revenue, 2) . ')',
+                // 'message' => $topProduct->product->name . ' (₱' . number_format($topProduct->total_revenue, 2) . ')',
+                'message' => $topProduct['product']['name'],
                 'icon' => 'heroicon-o-trophy',
             ];
         }
@@ -200,7 +216,6 @@ class DetailedSalesBreakdownWidget extends Widget
     private function generateYearlyInsights(array $data): array
     {
         $insights = [];
-        $current = $data['current'];
         $quarterly = $data['quarterly_summary'] ?? [];
 
         // Year progress
@@ -218,7 +233,7 @@ class DetailedSalesBreakdownWidget extends Widget
         // Best quarter
         if (!empty($quarterly)) {
             $bestQuarter = collect($quarterly)->sortByDesc('revenue')->first();
-            if ($bestQuarter['revenue'] > 0) {
+            if (($bestQuarter['revenue'] ?? 0) > 0) {
                 $insights[] = [
                     'type' => 'success',
                     'title' => 'Best Quarter',
@@ -229,7 +244,7 @@ class DetailedSalesBreakdownWidget extends Widget
         }
 
         // Growth insight
-        if ($data['change_percent'] > 15) {
+        if (($data['change_percent'] ?? 0) > 15) {
             $insights[] = [
                 'type' => 'success',
                 'title' => 'Strong Annual Growth',

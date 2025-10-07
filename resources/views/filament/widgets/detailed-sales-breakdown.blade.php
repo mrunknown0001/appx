@@ -1,5 +1,6 @@
 @php
     $data = $this->getViewData();
+    $widgetId = 'revenue-chart-' . md5($this->getId());
 @endphp
 
 <x-filament-widgets::widget>
@@ -125,7 +126,7 @@
                     <h4 class="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">Revenue Trend</h4>
                     
                     <div class="h-64">
-                        <canvas id="revenue-chart-{{ $this->getId() }}" class="w-full h-full"></canvas>
+                        <canvas id="{{ $widgetId }}" class="w-full h-full"></canvas>
                     </div>
                 </div>
             </div>
@@ -201,68 +202,71 @@
         @endif
     </x-filament::section>
 </x-filament-widgets::widget>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const chartId = 'revenue-chart-{{ $this->getId() }}';
-    const ctx = document.getElementById(chartId);
-    
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: @json($data['chart_data']['labels']),
-                datasets: [{
-                    label: 'Revenue',
-                    data: @json($data['chart_data']['revenue']),
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '₱' + value.toLocaleString();
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
-        });
-    }
-});
 
-// Listen for Livewire updates
-document.addEventListener('livewire:navigated', function() {
-    // Re-initialize charts after Livewire updates
-    setTimeout(() => {
-        const chartId = 'revenue-chart-{{ $this->getId() }}';
-        const ctx = document.getElementById(chartId);
+@script
+<script>
+    console.log('Script is loading...');
+    
+    // Chart data
+    const chartData = @json([
+        'labels' => $data['chart_data']['labels'] ?? [],
+        'revenue' => $data['chart_data']['revenue'] ?? []
+    ]);
+    
+    const canvasId = '{{ $widgetId }}';
+    
+    console.log('Canvas ID:', canvasId);
+    console.log('Chart data:', chartData);
+    
+    let chartInstance = null;
+    
+    function loadChart() {
+        console.log('loadChart called');
         
-        if (ctx) {
-            // Destroy existing chart if it exists
-            Chart.getChart(ctx)?.destroy();
-            
-            // Create new chart
-            new Chart(ctx, {
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.log('Chart.js not loaded, loading now...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.onload = function() {
+                console.log('Chart.js loaded successfully');
+                createChart();
+            };
+            script.onerror = function() {
+                console.error('Failed to load Chart.js');
+            };
+            document.head.appendChild(script);
+        } else {
+            console.log('Chart.js already available');
+            createChart();
+        }
+    }
+    
+    function createChart() {
+        console.log('createChart called');
+        
+        const canvas = document.getElementById(canvasId);
+        console.log('Canvas element:', canvas);
+        
+        if (!canvas) {
+            console.error('Canvas not found with ID:', canvasId);
+            return;
+        }
+        
+        // Destroy existing chart
+        if (chartInstance) {
+            console.log('Destroying old chart');
+            chartInstance.destroy();
+        }
+        
+        try {
+            chartInstance = new Chart(canvas, {
                 type: 'line',
                 data: {
-                    labels: @json($data['chart_data']['labels']),
+                    labels: chartData.labels,
                     datasets: [{
                         label: 'Revenue',
-                        data: @json($data['chart_data']['revenue']),
+                        data: chartData.revenue,
                         borderColor: 'rgb(59, 130, 246)',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
@@ -285,11 +289,31 @@ document.addEventListener('livewire:navigated', function() {
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Revenue: ₱' + context.parsed.y.toLocaleString();
+                                }
+                            }
                         }
                     }
                 }
             });
+            
+            console.log('Chart created successfully!', chartInstance);
+        } catch (error) {
+            console.error('Error creating chart:', error);
         }
-    }, 100);
-});
+    }
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadChart);
+    } else {
+        loadChart();
+    }
+    
+    console.log('Script setup complete');
 </script>
+@endscript

@@ -28,15 +28,19 @@ class SampleSalesDataSeeder extends Seeder
 
         $this->command->info("Found {$products->count()} products. Generating sales history...");
 
-        // Generate sales for the last 12 months
-        $startDate = Carbon::now()->subMonths(12);
+        // Generate sales for the last 3 years (36 months)
+        $startDate = Carbon::now()->subYears(3);
         $endDate = Carbon::now();
 
         $saleNumber = 1000;
 
         // Generate sales for each week
         $currentDate = $startDate->copy();
+        $weekCounter = 0;
+        
         while ($currentDate <= $endDate) {
+            $weekCounter++;
+            
             // Create 5-15 sales per week (randomly)
             $salesPerWeek = rand(5, 15);
 
@@ -139,18 +143,25 @@ class SampleSalesDataSeeder extends Seeder
                 ]);
             }
 
+            // Progress indicator every 10 weeks
+            if ($weekCounter % 10 == 0) {
+                $this->command->info("  Processing week {$weekCounter}...");
+            }
+
             // Move to next week
             $currentDate->addWeek();
         }
 
         $totalSales = Sale::count();
         $totalItems = SaleItem::count();
+        $totalWeeks = $weekCounter;
         
         $this->command->info("✓ Sample data created successfully!");
         $this->command->info("  - Total Sales: {$totalSales}");
         $this->command->info("  - Total Sale Items: {$totalItems}");
+        $this->command->info("  - Total Weeks: {$totalWeeks}");
         $this->command->info("  - Date Range: {$startDate->format('Y-m-d')} to {$endDate->format('Y-m-d')}");
-        $this->command->info("\nYou can now test the forecasting feature!");
+        $this->command->info("\nYou can now test the forecasting feature with 3 years of data!");
     }
 
     /**

@@ -21,6 +21,8 @@ class AuditResource extends Resource
 
     protected static ?string $navigationGroup = 'Misc';
 
+    protected static ?string $navigationLabel = 'Audit Logs';
+
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
@@ -36,12 +38,29 @@ class AuditResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('user_id')
-                    ->label('Employee ID'),
-                Tables\Columns\TextColumn::make('auditable_type'),
-                Tables\Columns\TextColumn::make('auditable_id'),
-                Tables\Columns\TextColumn::make('event'),
-                Tables\Columns\TextColumn::make('old_values'),
-                Tables\Columns\TextColumn::make('new_values'),
+                    ->label('Employee ID')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('auditable_type')
+                    ->label('Auditable Type')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('auditable_id')
+                    ->label('Auditable ID')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('event')
+                    ->label('Event')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('old_values')
+                    ->label('Old Values')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('new_values')
+                    ->label('New Values')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Date')
                     ->dateTime('F j, Y, g:i A')
@@ -50,7 +69,33 @@ class AuditResource extends Resource
 
             ])
             ->filters([
-                //
+                // filter employee id
+                // Tables\Filters\SelectFilter::make('user_id')
+                //     ->label('Employee ID')
+                //     ->options(function () {
+                //         return DB::table('users')->pluck('employee_id', 'id')->toArray();
+                //     })->searchable(),
+
+                // date filter
+                Tables\Filters\Filter::make('created_at')
+                    ->label('Date')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')
+                            ->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')
+                            ->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when(
+                                $data['created_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['created_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                            );
+                    }),
             ])
             ->actions([
                 // Tables\Actions\EditAction::make(),

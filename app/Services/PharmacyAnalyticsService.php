@@ -455,14 +455,12 @@ class PharmacyAnalyticsService
     }
 
     /**
-     * Get monthly breakdown for charts
+     * Get monthly breakdown for charts - shows last 30 days
      */
     private function getMonthlyBreakdown(Carbon $startDate, Carbon $endDate): array
     {
-        $start = $startDate->copy()->startOfDay();
-        $end = $endDate->copy()->endOfDay();
-        
-        return Sale::whereBetween('sale_date', [$start, $end])
+        // Get actual sales data from database
+        $salesData = Sale::whereBetween('sale_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
             ->where('status', 'completed')
             ->selectRaw('
                 DATE(sale_date) as date,
@@ -470,16 +468,29 @@ class PharmacyAnalyticsService
                 SUM(total_amount) as revenue
             ')
             ->groupBy(DB::raw('DATE(sale_date)'))
-            ->orderBy('date')
             ->get()
-            ->map(function ($item) {
-                return [
-                    'date' => $item->date,
-                    'transactions' => (int) $item->transactions,
-                    'revenue' => (float) $item->revenue,
-                ];
-            })
-            ->toArray();
+            ->keyBy('date');
+        
+        // Generate all days in the range (last 30 days or month to date)
+        $data = [];
+        $current = Carbon::now()->subDays(29)->startOfDay(); // Last 30 days including today
+        $end = Carbon::now()->endOfDay();
+        
+        while ($current->lte($end)) {
+            $dateKey = $current->format('Y-m-d');
+            $dayData = $salesData->get($dateKey);
+            
+            $data[] = [
+                'date' => $dateKey,
+                'day_short' => $current->format('M j'), // e.g., "Oct 3"
+                'transactions' => $dayData ? (int) $dayData->transactions : 0,
+                'revenue' => $dayData ? (float) $dayData->revenue : 0,
+            ];
+            
+            $current->addDay();
+        }
+        
+        return $data;
     }
 
     /**
