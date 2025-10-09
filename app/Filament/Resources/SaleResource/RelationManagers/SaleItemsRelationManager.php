@@ -51,15 +51,25 @@ class SaleItemsRelationManager extends RelationManager
                             ->live()
                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                 if ($state) {
-                                    $product = Product::find($state);
-                                    if ($product) {
-                                        // Set unit price from product's current price
-                                        $set('unit_price', $product->getCurrentPrice());
-                                        // Clear the batch selection
-                                        $set('inventory_batch_id', null);
-                                        // Clear previous calculations
-                                        $set('total_price', null);
-                                    }
+                                    $latestSellingPrice = \App\Models\StockEntry::query()
+                                        ->where('product_id', $state)
+                                        ->whereNotNull('selling_price')
+                                        ->latest('entry_date')
+                                        ->value('selling_price');
+
+                                    $set(
+                                        'unit_price',
+                                        $latestSellingPrice !== null
+                                            ? number_format((float) $latestSellingPrice, 2, '.', '')
+                                            : number_format(0, 2, '.', '')
+                                    );
+
+                                    // Clear the batch selection
+                                    $set('inventory_batch_id', null);
+                                    // Clear previous calculations
+                                    $set('total_price', null);
+                                } else {
+                                    $set('unit_price', number_format(0, 2, '.', ''));
                                 }
                             })
                             ->helperText('Search by product name, SKU, or manufacturer'),
@@ -90,7 +100,18 @@ class SaleItemsRelationManager extends RelationManager
                             ->required()
                             ->searchable()
                             ->live()
-                            ->helperText('Only active batches with available stock are shown'),
+                            ->helperText('Only active batches with available stock are shown')
+                            ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                if ($state) {
+                                    $batch = InventoryBatch::with('stockEntry')->find($state);
+
+                                    if ($batch?->stockEntry?->selling_price !== null) {
+                                        $set('unit_price', number_format((float) $batch->stockEntry->selling_price, 2, '.', ''));
+                                    }
+
+                                    $this->calculateTotal($set, $get);
+                                }
+                            }),
                     ]),
 
                 Grid::make(3)

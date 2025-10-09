@@ -170,11 +170,21 @@ class SaleResource extends Resource
                                                             ->live()
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
-                                                                    $product = Product::find($state);
-                                                                    if ($product) {
-                                                                        $set('unit_price', $product->getCurrentPrice());
-                                                                        $set('inventory_batch_id', null);
-                                                                    }
+                                                                    $latestSellingPrice = StockEntry::query()
+                                                                        ->where('product_id', $state)
+                                                                        ->whereNotNull('selling_price')
+                                                                        ->latest('entry_date')
+                                                                        ->value('selling_price');
+
+                                                                    $set('unit_price', $latestSellingPrice !== null
+                                                                        ? number_format((float) $latestSellingPrice, 2, '.', '')
+                                                                        : number_format(0, 2, '.', '')
+                                                                    );
+
+                                                                    $set('inventory_batch_id', null);
+                                                                    $set('total_price', null);
+                                                                } else {
+                                                                    $set('unit_price', number_format(0, 2, '.', ''));
                                                                 }
                                                             })
                                                             ->rules([
@@ -197,7 +207,7 @@ class SaleResource extends Resource
                                                         Select::make('inventory_batch_id')
                                                             ->label('Batch')
                                                             ->relationship('inventoryBatch', 'batch_number')
-                                                            ->getOptionLabelFromRecordUsing(fn (InventoryBatch $record): string => 
+                                                            ->getOptionLabelFromRecordUsing(fn (InventoryBatch $record): string =>
                                                                 "{$record->batch_number} (Qty: {$record->current_quantity}, Exp: {$record->expiry_date->format('M Y')})")
                                                             ->options(function (Get $get) {
                                                                 $productId = $get('product_id');
@@ -213,18 +223,12 @@ class SaleResource extends Resource
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
                                                                     $batch = InventoryBatch::find($state);
-                                                                    $product_id = $get('product_id');
-                                                                    $stockEntry = StockEntry::where('product_id', $product_id)
-                                                                        ->where('batch_number', $batch->batch_number)
-                                                                        ->whereNotNull('selling_price')
-                                                                        ->latest()
-                                                                        ->first();
-                                                                    if ($stockEntry) {
-                                                                        $set('unit_price', $stockEntry->selling_price);
+
+                                                                    if ($batch?->stockEntry?->selling_price !== null) {
+                                                                        $set('unit_price', number_format((float) $batch->stockEntry->selling_price, 2, '.', ''));
                                                                     }
-                                                                    else {
-                                                                        $set('unit_price', 0);
-                                                                    }
+
+                                                                    $set('total_price', null);
                                                                 }
                                                             })
                                                             ->required()
