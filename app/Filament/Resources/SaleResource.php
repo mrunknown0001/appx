@@ -8,6 +8,7 @@ use App\Models\Sale;
 use App\Models\Product;
 use App\Models\InventoryBatch;
 use App\Models\StockEntry;
+use App\Models\SaleItem;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -35,6 +36,7 @@ use Filament\Forms\Set;
 use Illuminate\Support\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Closure;
 
 
@@ -633,6 +635,38 @@ class SaleResource extends Resource
             'view' => Pages\ViewSale::route('/{record}'),
             'edit' => Pages\EditSale::route('/{record}/edit'),
         ];
+    }
+
+    public static function persistRecalculatedTotals(Sale $sale): array
+    {
+        $sale->loadMissing('saleItems');
+
+        $subtotal = $sale->saleItems->sum(fn (SaleItem $item): float => (float) $item->total_price);
+        $taxAmount = (float) $sale->tax_amount;
+        $discountAmount = (float) $sale->discount_amount;
+        $total = max(0, $subtotal + $taxAmount - $discountAmount);
+
+        $normalizedTotals = [
+            'subtotal' => round($subtotal, 2),
+            'tax_amount' => round($taxAmount, 2),
+            'discount_amount' => round($discountAmount, 2),
+            'total_amount' => round($total, 2),
+        ];
+
+        Log::info('SaleResource::persistRecalculatedTotals - computed totals', [
+            'sale_id' => $sale->id,
+            'items_count' => $sale->saleItems->count(),
+            'payload' => $normalizedTotals,
+        ]);
+
+        $sale->forceFill($normalizedTotals)->saveQuietly();
+
+        Log::info('SaleResource::persistRecalculatedTotals - persisted totals', [
+            'sale_id' => $sale->id,
+            'payload' => $normalizedTotals,
+        ]);
+
+        return $normalizedTotals;
     }
 
     public static function getGlobalSearchEloquentQuery(): Builder
