@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Components\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class ListProductCategories extends ListRecords
 {
@@ -43,5 +44,14 @@ class ListProductCategories extends ListRecords
                 ->badge(fn () => \App\Models\ProductCategory::where('is_active', false)->count())
                 ->badgeColor('warning'),
         ];
+    }
+
+    protected function getTableRecordUrl(?Model $record): ?string
+    {
+        if (! $record) {
+            return null;
+        }
+
+        return ProductCategoryResource::getUrl('view', ['record' => $record]);
     }
 }
