@@ -70,9 +70,25 @@ class StockEntryResource extends Resource
                                     ->searchable()
                                     ->placeholder('Select supplier name')
                                     ->options(function () {
-                                        return Supplier::get()
+                                        return Supplier::orderBy('name', 'asc')
+                                            ->get()
                                             ->pluck('name', 'name')
                                             ->toArray();
+                                    })
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->label('Supplier Name')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->unique(ignoreRecord: true),
+                                        Forms\Components\TextInput::make('short_code')
+                                            ->label('Short Code')
+                                            ->maxLength(50),
+                                    ])
+                                    ->createOptionUsing(function (array $data) {
+                                        return Supplier::create([
+                                            'name' => $data['name'],
+                                        ]);
                                     }),
 
                                 TextInput::make('invoice_number')
