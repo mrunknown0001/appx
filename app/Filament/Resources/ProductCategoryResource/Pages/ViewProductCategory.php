@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductCategoryResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
+use Livewire\WithPagination as LivewireWithPagination;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\Section;
@@ -15,6 +16,8 @@ use Filament\Support\Enums\FontWeight;
 
 class ViewProductCategory extends ViewRecord
 {
+    use LivewireWithPagination;
+
     protected static string $resource = ProductCategoryResource::class;
 
     protected function getHeaderActions(): array
