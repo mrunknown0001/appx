@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\SaleItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
 
 class ARIMAForecastService
@@ -31,9 +32,35 @@ class ARIMAForecastService
             if (!$product) {
                 continue;
             }
+
+            $continuity = $this->analyzePeriodContinuity($data['periods'] ?? [], $period);
+
+            Log::debug('ARIMA forecast input summary', [
+                'product_id' => $prodId,
+                'product_name' => $product->name,
+                'period_type' => $period,
+                'historical_points' => count($data['quantities']),
+                'unique_periods' => count(array_unique($data['periods'] ?? [])),
+                'continuity' => $continuity,
+            ]);
+
+            if (($continuity['missing_periods'] ?? 0) > 0) {
+                Log::warning('ARIMA missing periods detected', [
+                    'product_id' => $prodId,
+                    'product_name' => $product->name,
+                    'period_type' => $period,
+                    'continuity' => $continuity,
+                ]);
+            }
             
             // Need at least 3 data points for ARIMA
             if (count($data['quantities']) < 3) {
+                Log::info('ARIMA skipping product due to insufficient data points', [
+                    'product_id' => $prodId,
+                    'product_name' => $product->name,
+                    'period_type' => $period,
+                    'data_points' => count($data['quantities']),
+                ]);
                 $skippedProducts[] = $product->name . ' (only ' . count($data['quantities']) . ' periods)';
                 continue;
             }
@@ -149,6 +176,20 @@ class ARIMAForecastService
         
         // Step 3: Calculate MA parameters (simplified estimation)
         $maParams = $this->calculateMAParameters($differenced, $q);
+
+        Log::debug('ARIMA parameter estimation snapshot', [
+            'series_length' => count($timeSeries),
+            'horizon' => $horizon,
+            'parameters' => [
+                'p' => $p,
+                'd' => $d,
+                'q' => $q,
+            ],
+            'ar_params' => $arParams,
+            'ar_param_unique_values' => array_values(array_unique($arParams)),
+            'ma_params' => $maParams,
+            'ma_param_unique_values' => array_values(array_unique($maParams)),
+        ]);
         
         // Step 4: Generate forecast
         $forecast = [];
@@ -294,11 +335,13 @@ class ARIMAForecastService
                 $grouped[$row->product_id] = [
                     'quantities' => [],
                     'revenues' => [],
+                    'periods' => [],
                 ];
             }
             
             $grouped[$row->product_id]['quantities'][] = (float) $row->total_quantity;
             $grouped[$row->product_id]['revenues'][] = (float) $row->total_revenue;
+            $grouped[$row->product_id]['periods'][] = $row->period;
         }
 
         return $grouped;
@@ -350,6 +393,93 @@ class ARIMAForecastService
             ->where('status', 'active')
             ->where('expiry_date', '>', now())
             ->sum('current_quantity') ?? 0;
+    }
+
+    /**
+     * Analyze chronological continuity of aggregated periods.
+     */
+    private function analyzePeriodContinuity(array $periods, string $periodType): array
+    {
+        $uniquePeriods = collect($periods)
+            ->filter(fn ($value) => !empty($value))
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($uniquePeriods->isEmpty()) {
+            return [
+                'first_period' => null,
+                'last_period' => null,
+                'actual_periods' => 0,
+                'expected_periods' => 0,
+                'missing_periods' => 0,
+            ];
+        }
+
+        $firstPeriod = $uniquePeriods->first();
+        $lastPeriod = $uniquePeriods->last();
+        $expectedCount = $this->calculateExpectedPeriodCount($firstPeriod, $lastPeriod, $periodType);
+        $actualCount = $uniquePeriods->count();
+
+        return [
+            'first_period' => $firstPeriod,
+            'last_period' => $lastPeriod,
+            'actual_periods' => $actualCount,
+            'expected_periods' => $expectedCount,
+            'missing_periods' => max(0, $expectedCount - $actualCount),
+        ];
+    }
+
+    /**
+     * Determine how many contiguous periods should exist between the first and last observations.
+     */
+    private function calculateExpectedPeriodCount(string $firstPeriod, string $lastPeriod, string $periodType): int
+    {
+        try {
+            return match ($periodType) {
+                'weekly' => $this->parseWeeklyPeriod($firstPeriod)->diffInWeeks($this->parseWeeklyPeriod($lastPeriod)) + 1,
+                'quarterly' => intdiv($this->parseQuarterlyPeriod($firstPeriod)->diffInMonths($this->parseQuarterlyPeriod($lastPeriod)), 3) + 1,
+                default => $this->parseMonthlyPeriod($firstPeriod)->diffInMonths($this->parseMonthlyPeriod($lastPeriod)) + 1,
+            };
+        } catch (\Throwable $exception) {
+            Log::warning('ARIMA period continuity analysis failed', [
+                'first_period' => $firstPeriod,
+                'last_period' => $lastPeriod,
+                'period_type' => $periodType,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return collect([$firstPeriod, $lastPeriod])->filter()->unique()->count();
+        }
+    }
+
+    private function parseMonthlyPeriod(string $period): Carbon
+    {
+        return Carbon::createFromFormat('Y-m', $period)->startOfMonth();
+    }
+
+    private function parseWeeklyPeriod(string $period): Carbon
+    {
+        if (sscanf($period, '%d-W%d', $year, $week) !== 2) {
+            throw new \InvalidArgumentException('Invalid weekly period format: ' . $period);
+        }
+
+        return Carbon::now()->setISODate((int) $year, (int) $week)->startOfWeek();
+    }
+
+    private function parseQuarterlyPeriod(string $period): Carbon
+    {
+        if (sscanf($period, '%d-Q%d', $year, $quarter) !== 2) {
+            throw new \InvalidArgumentException('Invalid quarterly period format: ' . $period);
+        }
+
+        if ($quarter < 1 || $quarter > 4) {
+            throw new \InvalidArgumentException('Quarter value out of range: ' . $period);
+        }
+
+        $month = (($quarter - 1) * 3) + 1;
+
+        return Carbon::createFromDate((int) $year, $month, 1)->startOfMonth();
     }
 
     /**
