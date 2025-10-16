@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\StockEntryResource\Pages;
 use App\Models\StockEntry;
 use App\Models\Product;
+use App\Models\Supplier;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -63,11 +64,16 @@ class StockEntryResource extends Resource
                                         "{$record->name} ({$record->sku})"
                                     ),
 
-                                TextInput::make('supplier_name')
+                                Select::make('supplier_name')
                                     ->label('Supplier Name')
                                     ->required()
-                                    ->maxLength(255)
-                                    ->placeholder('Enter supplier name'),
+                                    ->searchable()
+                                    ->placeholder('Select supplier name')
+                                    ->options(function () {
+                                        return Supplier::get()
+                                            ->pluck('name', 'name')
+                                            ->toArray();
+                                    }),
 
                                 TextInput::make('invoice_number')
                                     ->label('Invoice Number')

@@ -33,6 +33,27 @@ class StockEntry extends Model implements Auditable
         'selling_price' => 'decimal:2'
     ];
 
+    public static function booted()
+    {
+        // stock entry created, add record to price history using the selling_price value
+        static::created(function ($stockEntry) {
+            // add price history using the product_id and selling_price
+            $stockEntry->product->priceHistory()->create([
+                'product_id' => $stockEntry->product_id,
+                'cost_price' => $stockEntry->unit_cost,
+                'selling_price' => $stockEntry->selling_price,
+                'markup_percentage' => self::getMarkup($stockEntry->unit_cost, $stockEntry->selling_price),
+                'effective_date' => now(),
+            ]);
+        });
+    }
+
+    public static function getMarkup($unit_cost, $selling_price)
+    {
+        $diff = $selling_price - $unit_cost;
+        return ($diff/$unit_cost) * 100;
+    }
+
     public function product()
     {
         return $this->belongsTo(Product::class);
