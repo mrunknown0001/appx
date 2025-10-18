@@ -63,7 +63,7 @@ class SampleSalesDataSeeder extends Seeder
                     'tax_amount' => 0,
                     'discount_amount' => 0,
                     'total_amount' => 0,
-                    'payment_method' => ['cash', 'credit_card', 'gcash', 'maya'][rand(0, 3)],
+                    'payment_method' => ['cash', 'credit_card', 'debit_card', 'gcash', 'maya'][rand(0, 3)],
                     'status' => 'completed',
                     'created_at' => $saleDate,
                     'updated_at' => $saleDate,

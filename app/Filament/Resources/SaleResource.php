@@ -139,10 +139,11 @@ class SaleResource extends Resource
                                             ->required()
                                             ->options([
                                                 'cash' => 'Cash',
-                                                'card' => 'Card',
-                                                'digital_wallet' => 'Digital Wallet',
-                                                'bank_transfer' => 'Bank Transfer',
-                                                'credit' => 'Credit',
+                                                'credit_card' => 'Credit Card',
+                                                'debit_card' => 'Debit Card',
+                                                'gcash' => 'GCash',
+                                                'maya' => 'Maya',
+                                                'others'  => 'Others'
                                             ])
                                             ->default('cash')
                                             ->native(false),
@@ -468,14 +469,18 @@ class SaleResource extends Resource
                     ->colors([
                         'success' => 'cash',
                         'primary' => 'credit_card',
+                        'default' => 'debit-card',
                         'warning' => 'gcash',
                         'danger' => 'maya',
+                        'info' => 'others'
                     ])
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cash' => 'Cash',
-                        'credit_card' => 'Card',
+                        'credit_card' => 'Credit Card',
+                        'debit_card' => 'Debit Card',
                         'gcash' => 'GCash',
                         'maya' => 'Maya',
+                        'others' => 'Others',
                         default => $state,
                     }),
 
