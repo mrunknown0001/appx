@@ -149,7 +149,7 @@ class ViewStockEntry extends ViewRecord
                                     ->placeholder('No notes for this item')
                                     ->columnSpanFull(),
                             ])
-                            ->emptyStateHeading('No products recorded')
+                            // ->emptyStateDescription('No products recorded')
                             ->columns(1),
                     ])
                     ->collapsible(),
@@ -210,7 +210,7 @@ class ViewStockEntry extends ViewRecord
                                             }),
                                     ]),
                             ])
-                            ->emptyStateHeading('No inventory batches linked yet'),
+                            // ->emptyStateDescription('No inventory batches linked yet'),
                     ])
                     ->columns(1)
                     ->visible(fn ($record) => $record->inventoryBatches->isNotEmpty()),
