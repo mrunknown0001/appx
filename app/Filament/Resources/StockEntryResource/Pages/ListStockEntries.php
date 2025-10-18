@@ -5,6 +5,7 @@ namespace App\Filament\Resources\StockEntryResource\Pages;
 use App\Filament\Resources\StockEntryResource;
 use App\Models\Product;
 use App\Models\StockEntry;
+use Illuminate\Support\Facades\Log;
 use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
@@ -25,6 +26,13 @@ class ListStockEntries extends ListRecords
 
     public function getTabs(): array
     {
+        if (! method_exists(StockEntry::class, 'items')) {
+            Log::error('ListStockEntries::getTabs missing StockEntry::items() relationship', [
+                'stock_entry_class' => StockEntry::class,
+                'available_methods_sample' => array_slice(get_class_methods(StockEntry::class), 0, 10),
+            ]);
+        }
+
         return [
             'all' => Tab::make('All Entries')
                 ->badge(fn () => StockEntry::count()),
