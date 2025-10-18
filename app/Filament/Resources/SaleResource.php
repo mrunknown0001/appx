@@ -222,7 +222,7 @@ class SaleResource extends Resource
                                                             })
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
-                                                                    $batch = InventoryBatch::with('stockEntryItem')->find($state);
+                                                                    $batch = InventoryBatch::with('stockEntry')->find($state);
 
                                                                     if ($batch?->stockEntryItem?->selling_price !== null) {
                                                                         $set('unit_price', number_format((float) $batch->stockEntryItem->selling_price, 2, '.', ''));
