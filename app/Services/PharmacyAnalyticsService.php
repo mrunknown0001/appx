@@ -217,16 +217,40 @@ class PharmacyAnalyticsService
 
     private function getStockEntries($startDate, $endDate)
     {
-        return StockEntry::with('product')
+        return StockEntry::query()
+            ->with(['items.product'])
             ->whereBetween('entry_date', [$startDate, $endDate])
             ->selectRaw('
-                product_id,
-                SUM(quantity_received) as total_quantity,
-                SUM(total_cost) as total_cost
+                stock_entries.id,
+                stock_entries.entry_date,
+                COALESCE(SUM(stock_entry_items.quantity_received), 0) as total_quantity,
+                COALESCE(SUM(stock_entry_items.total_cost), 0) as total_cost
             ')
-            ->groupBy('product_id')
-            ->orderByDesc('total_quantity')
-            ->get();
+            ->join('stock_entry_items', 'stock_entry_items.stock_entry_id', '=', 'stock_entries.id')
+            ->groupBy('stock_entries.id', 'stock_entries.entry_date')
+            ->orderByDesc('stock_entries.entry_date')
+            ->get()
+            ->map(function (StockEntry $stockEntry) {
+                return [
+                    'stock_entry_id' => $stockEntry->id,
+                    'entry_date' => $stockEntry->entry_date,
+                    'total_quantity' => $stockEntry->total_quantity,
+                    'total_cost' => $stockEntry->total_cost,
+                    'products' => $stockEntry->items
+                        ->groupBy('product_id')
+                        ->map(function ($items) {
+                            $product = $items->first()->product;
+                            return [
+                                'product_id' => $product?->id,
+                                'product_name' => $product?->name,
+                                'sku' => $product?->sku,
+                                'quantity' => $items->sum('quantity_received'),
+                                'total_cost' => $items->sum('total_cost'),
+                            ];
+                        })
+                        ->values(),
+                ];
+            });
     }
 
     private function getStockOuts($startDate, $endDate)

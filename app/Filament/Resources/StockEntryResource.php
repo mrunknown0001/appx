@@ -3,29 +3,31 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockEntryResource\Pages;
-use App\Models\StockEntry;
 use App\Models\Product;
+use App\Models\StockEntry;
 use App\Models\Supplier;
 use Filament\Forms;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Grid;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\DatePicker;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Actions\ActionGroup;
 use Filament\Support\Enums\FontWeight;
-use Filament\Notifications\Notification;
+use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class StockEntryResource extends Resource
 {
@@ -53,28 +55,12 @@ class StockEntryResource extends Resource
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                Select::make('product_id')
-                                    ->label('Product')
-                                    ->relationship('product', 'name')
-                                    ->searchable()
-                                    ->preload()
-                                    ->required()
-                                    ->columnSpan(2)
-                                    ->getOptionLabelFromRecordUsing(fn (Product $record): string => 
-                                        "{$record->name} ({$record->sku})"
-                                    ),
-
                                 Select::make('supplier_name')
-                                    ->label('Supplier Name')
+                                    ->label('Supplier')
                                     ->required()
                                     ->searchable()
-                                    ->placeholder('Select supplier name')
-                                    ->options(function () {
-                                        return Supplier::orderBy('name', 'asc')
-                                            ->get()
-                                            ->pluck('name', 'name')
-                                            ->toArray();
-                                    })
+                                    ->placeholder('Select supplier')
+                                    ->options(fn () => Supplier::orderBy('name')->pluck('name', 'name'))
                                     ->createOptionForm([
                                         Forms\Components\TextInput::make('name')
                                             ->label('Supplier Name')
@@ -101,87 +87,149 @@ class StockEntryResource extends Resource
                                     ->label('Entry Date')
                                     ->required()
                                     ->default(now())
-                                    ->maxDate(now()),
-
-                                DatePicker::make('expiry_date')
-                                    ->label('Expiry Date')
-                                    ->required()
-                                    ->after('entry_date')
-                                    ->helperText('Must be after entry date'),
-                            ])
-                            ->columns(2),
-                    ]),
-
-                Section::make('Quantity & Pricing')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                TextInput::make('quantity_received')
-                                    ->label('Quantity Received')
-                                    ->required()
-                                    ->numeric()
-                                    ->minValue(1)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
-                                        $unitCost = $get('unit_cost');
-                                        if ($state && $unitCost) {
-                                            $set('total_cost', $state * $unitCost);
-                                        }
-                                    }),
-
-                                TextInput::make('unit_cost')
-                                    ->label('Unit Cost')
-                                    ->required()
-                                    ->numeric()
-                                    ->prefix('₱')
-                                    ->minValue(0.01)
-                                    ->step(0.01)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
-                                        $quantity = $get('quantity_received');
-                                        if ($state && $quantity) {
-                                            $set('total_cost', $quantity * $state);
-                                        }
-                                    }),
-
-                                TextInput::make('total_cost')
-                                    ->label('Total Cost')
-                                    ->required()
-                                    ->numeric()
-                                    ->prefix('₱')
-                                    ->minValue(0.01)
-                                    ->step(0.01)
-                                    ->readOnly()
-                                    ->helperText('Automatically calculated'),
-
-                                TextInput::make('selling_price')
-                                    ->label('Selling Price')
-                                    ->required()
-                                    ->numeric()
-                                    ->prefix('₱')
-                                    ->minValue(0.01)
-                                    ->step(0.01),
-                            ])
-                            ->columns(3),
-                    ]),
-
-                Section::make('Additional Information')
-                    ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('batch_number')
-                                    ->label('Batch Number')
-                                    ->maxLength(255)
-                                    ->placeholder('Enter batch number')
-                                    ->helperText('Optional batch identifier'),
+                                    ->maxDate(now())
+                                    ->columnSpan(1),
 
                                 Textarea::make('notes')
                                     ->label('Notes')
-                                    ->rows(3)
                                     ->placeholder('Additional notes about this stock entry')
-                                    ->columnSpan(1),
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                            ]),
+                    ]),
+                Section::make('Products & Quantities')
+                    ->schema([
+                        Repeater::make('items')
+                            ->relationship()
+                            ->label('Products')
+                            ->minItems(1)
+                            ->defaultItems(1)
+                            ->collapsed()
+                            ->itemLabel(fn (array $state): ?string => $state['product_label'] ?? null)
+                            ->schema([
+                                Grid::make()
+                                    ->schema([
+                                        Select::make('product_id')
+                                            ->label('Product')
+                                            ->relationship('product', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->required()
+                                            ->columnSpan(3)
+                                            ->getOptionLabelFromRecordUsing(fn (Product $record): string => "{$record->name} ({$record->sku})")
+                                            ->afterStateHydrated(function (Set $set, ?int $state, ?array $record) {
+                                                if ($record && isset($record['product'])) {
+                                                    $product = $record['product'];
+                                                    $set('product_label', "{$product['name']} ({$product['sku']})");
+                                                }
+                                            })
+                                            ->afterStateUpdated(function (Set $set, ?int $state) {
+                                                if (!$state) {
+                                                    $set('product_label', null);
+                                                    return;
+                                                }
+
+                                                $product = Product::find($state);
+                                                if ($product) {
+                                                    $set('product_label', "{$product->name} ({$product->sku})");
+                                                }
+                                            }),
+
+                                        TextInput::make('quantity_received')
+                                            ->label('Quantity')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->required()
+                                            ->columnSpan(1)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
+                                                $unitCost = (float) $get('unit_cost');
+                                                $quantity = (int) $state;
+                                                $set('total_cost', $quantity && $unitCost ? round($quantity * $unitCost, 4) : null);
+                                            }),
+
+                                        TextInput::make('unit_cost')
+                                            ->label('Unit Cost')
+                                            ->numeric()
+                                            ->minValue(0.01)
+                                            ->step(0.01)
+                                            ->prefix('₱')
+                                            ->required()
+                                            ->columnSpan(1)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
+                                                $unitCost = (float) $state;
+                                                $quantity = (int) $get('quantity_received');
+                                                $set('total_cost', $quantity && $unitCost ? round($quantity * $unitCost, 4) : null);
+                                            }),
+
+                                        TextInput::make('selling_price')
+                                            ->label('Selling Price')
+                                            ->numeric()
+                                            ->minValue(0.01)
+                                            ->step(0.01)
+                                            ->prefix('₱')
+                                            ->required()
+                                            ->columnSpan(1),
+
+                                        TextInput::make('total_cost')
+                                            ->label('Total Cost')
+                                            ->numeric()
+                                            ->step(0.01)
+                                            ->prefix('₱')
+                                            ->readOnly()
+                                            ->dehydrated(true)
+                                            ->columnSpan(1),
+
+                                        DatePicker::make('expiry_date')
+                                            ->label('Expiry Date')
+                                            ->nullable()
+                                            ->after('entry_date')
+                                            ->columnSpan(1),
+
+                                        TextInput::make('batch_number')
+                                            ->label('Batch Number')
+                                            ->maxLength(255)
+                                            ->placeholder('Optional batch identifier')
+                                            ->columnSpan(1),
+                                    ])
+                                    ->columns(6),
+
+                                Textarea::make('notes')
+                                    ->label('Item Notes')
+                                    ->rows(2)
+                                    ->columnSpanFull()
+                                    ->placeholder('Optional item-specific notes'),
                             ])
-                            ->columns(2),
+                            ->columns(1),
+                    ]),
+                Section::make('Totals')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                Placeholder::make('items_count_display')
+                                    ->label('Number of Products')
+                                    ->content(fn (Get $get): string => (string) collect($get('items') ?? [])->count())
+                                    ->extraAttributes(['class' => 'text-lg font-semibold']),
+
+                                Placeholder::make('total_quantity_display')
+                                    ->label('Total Quantity')
+                                    ->content(fn (Get $get): string => (string) collect($get('items') ?? [])->sum(fn ($item) => (int) ($item['quantity_received'] ?? 0)))
+                                    ->extraAttributes(['class' => 'text-lg font-semibold']),
+
+                                Placeholder::make('total_cost_display')
+                                    ->label('Total Cost')
+                                    ->content(function (Get $get): string {
+                                        $total = collect($get('items') ?? [])->sum(function ($item) {
+                                            $qty = (int) ($item['quantity_received'] ?? 0);
+                                            $unit = (float) ($item['unit_cost'] ?? 0);
+                                            return $qty && $unit ? $qty * $unit : (float) ($item['total_cost'] ?? 0);
+                                        });
+
+                                        return '₱' . number_format($total, 2);
+                                    })
+                                    ->extraAttributes(['class' => 'text-lg font-semibold text-success-600 dark:text-success-400']),
+                            ]),
                     ]),
             ]);
     }
@@ -190,15 +238,6 @@ class StockEntryResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('product.name')
-                    ->label('Product')
-                    ->searchable()
-                    ->sortable()
-                    ->weight(FontWeight::Medium)
-                    ->description(fn (StockEntry $record): string => 
-                        "SKU: {$record->product->sku}"
-                    ),
-
                 TextColumn::make('supplier_name')
                     ->label('Supplier')
                     ->searchable()
@@ -216,51 +255,45 @@ class StockEntryResource extends Resource
                     ->date()
                     ->sortable(),
 
-                TextColumn::make('quantity_received')
-                    ->label('Quantity')
-                    ->numeric()
-                    ->sortable()
-                    ->alignEnd()
-                    ->badge()
-                    ->color('success'),
+                TextColumn::make('items_summary')
+                    ->label('Products')
+                    ->state(function (StockEntry $record): string {
+                        return $record->items
+                            ->map(function ($item) {
+                                $productName = $item->product?->name ?? 'Unknown product';
+                                $sku = $item->product?->sku ? " ({$item->product->sku})" : '';
+                                $quantity = number_format($item->quantity_received ?? 0);
+                                $unit = $item->product?->unit?->abbreviation ?? 'units';
 
-                TextColumn::make('unit_cost')
-                    ->label('Unit Cost')
-                    ->money('PHP')
-                    ->sortable()
-                    ->alignEnd(),
+                                return "{$productName}{$sku}<br><span class=\"text-gray-500\">Qty: {$quantity} {$unit} · ₱" .
+                                    number_format((float) $item->unit_cost, 2) . '</span>';
+                            })
+                            ->implode('<br>');
+                    })
+                    ->html()
+                    ->limit(200)
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('items_count')
+                    ->label('Items')
+                    ->numeric()
+                    ->badge()
+                    ->alignEnd()
+                    ->sortable(),
+
+                TextColumn::make('total_quantity')
+                    ->label('Total Qty')
+                    ->numeric()
+                    ->alignEnd()
+                    ->sortable(),
 
                 TextColumn::make('total_cost')
                     ->label('Total Cost')
                     ->money('PHP')
-                    ->sortable()
                     ->alignEnd()
-                    ->weight(FontWeight::Bold),
-
-                TextColumn::make('expiry_date')
-                    ->label('Expiry Date')
-                    ->date()
-                    ->sortable()
-                    ->badge()
-                    ->color(function ($record) {
-                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
-                        if ($daysUntilExpiry > 0) return 'danger'; // Expired
-                        if ($daysUntilExpiry > -30) return 'warning'; // Expires soon
-                        return 'success';
-                    })
-                    ->description(function ($record) {
-                        $daysUntilExpiry = $record->expiry_date->diffInDays(now(), false);
-                        if ($daysUntilExpiry > 0) {
-                            return "Expired " . $record->expiry_date->diffForHumans();
-                        }
-                        return "Expires " . $record->expiry_date->diffForHumans();
-                    }),
-
-                TextColumn::make('batch_number')
-                    ->label('Batch')
-                    ->searchable()
-                    ->placeholder('N/A')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->weight(FontWeight::Bold)
+                    ->sortable(),
 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -269,11 +302,16 @@ class StockEntryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('product_id')
+                SelectFilter::make('product')
                     ->label('Product')
-                    ->relationship('product', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->options(fn () => Product::orderBy('name')->pluck('name', 'id'))
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('items', fn (Builder $q) => $q->where('product_id', $data['value']));
+                    }),
 
                 Filter::make('entry_date')
                     ->form([
@@ -296,65 +334,60 @@ class StockEntryResource extends Resource
 
                 Filter::make('expiry_status')
                     ->label('Expiry Status')
-                    ->query(function (Builder $query, array $data): Builder {
-                        if ($data['expired'] ?? false) {
-                            $query->where('expiry_date', '<', now());
-                        }
-                        if ($data['expires_soon'] ?? false) {
-                            $query->where('expiry_date', '>=', now())
-                                  ->where('expiry_date', '<=', now()->addDays(30));
-                        }
-                        return $query;
-                    })
                     ->form([
                         Forms\Components\Checkbox::make('expired')
                             ->label('Show Expired'),
                         Forms\Components\Checkbox::make('expires_soon')
                             ->label('Show Expiring Soon (30 days)'),
-                    ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['expired'] ?? false,
+                                fn (Builder $query) => $query->whereHas('items', fn (Builder $q) => $q->where('expiry_date', '<', now()))
+                            )
+                            ->when(
+                                $data['expires_soon'] ?? false,
+                                fn (Builder $query) => $query->whereHas('items', fn (Builder $q) => $q
+                                    ->where('expiry_date', '>=', now())
+                                    ->where('expiry_date', '<=', now()->addDays(30)))
+                            );
+                    }),
 
                 SelectFilter::make('supplier_name')
                     ->label('Supplier')
-                    ->options(function () {
-                        return StockEntry::distinct()
-                            ->pluck('supplier_name', 'supplier_name')
-                            ->toArray();
-                    })
+                    ->options(fn () => StockEntry::query()
+                        ->distinct()
+                        ->pluck('supplier_name', 'supplier_name')
+                        ->filter()
+                        ->toArray())
                     ->searchable(),
             ])
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
-                    Tables\Actions\Action::make('view_product')
-                        ->label('View Product')
-                        ->icon('heroicon-o-cube')
-                        ->url(fn (StockEntry $record): string => 
-                            route('filament.app.resources.products.view', $record->product)
-                        )
-                        ->openUrlInNewTab(),
                     Tables\Actions\DeleteAction::make()
                         ->before(function (StockEntry $record) {
-                            // Check if this stock entry has associated inventory batches
-                            if ($record->inventoryBatch()->exists()) {
+                            if ($record->inventoryBatches()->exists()) {
                                 throw new \Exception('Cannot delete stock entry that has associated inventory batches.');
                             }
                         }),
-                ])
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->before(function ($records) {
+                        ->before(function (Collection $records) {
                             foreach ($records as $record) {
-                                if ($record->inventoryBatch()->exists()) {
+                                if ($record->inventoryBatches()->exists()) {
                                     throw new \Exception('Cannot delete stock entries that have associated inventory batches.');
                                 }
                             }
                         }),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('entry_date', 'desc')
             ->striped()
             ->poll('60s');
     }
@@ -362,7 +395,7 @@ class StockEntryResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // You can add relation managers here for inventory batches, etc.
+            // Relation managers can be added here for stock entry items or inventory batches when needed.
         ];
     }
 
@@ -379,21 +412,32 @@ class StockEntryResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['product', 'product.category', 'product.unit']);
+            ->with(['items.product.unit', 'inventoryBatches']);
     }
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['supplier_name', 'invoice_number', 'batch_number', 'product.name', 'product.sku'];
+        return [
+            'supplier_name',
+            'invoice_number',
+            'items.batch_number',
+            'items.product.name',
+            'items.product.sku',
+        ];
     }
 
     public static function getGlobalSearchResultDetails($record): array
     {
+        $productSummary = $record->items
+            ->take(3)
+            ->map(fn ($item) => $item->product?->name ?? 'Unknown product')
+            ->implode(', ');
+
         return [
-            'Product' => $record->product->name,
             'Supplier' => $record->supplier_name,
-            'Invoice' => $record->invoice_number ?? 'N/A',
-            'Entry Date' => $record->entry_date->format('M d, Y'),
+            'Products' => $productSummary ?: 'No products',
+            'Total Quantity' => number_format($record->total_quantity ?? 0),
+            'Entry Date' => optional($record->entry_date)->format('M d, Y') ?? 'N/A',
         ];
     }
 }

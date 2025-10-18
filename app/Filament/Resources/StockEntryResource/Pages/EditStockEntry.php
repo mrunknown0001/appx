@@ -3,9 +3,15 @@
 namespace App\Filament\Resources\StockEntryResource\Pages;
 
 use App\Filament\Resources\StockEntryResource;
+use App\Models\InventoryBatch;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class EditStockEntry extends EditRecord
 {
@@ -17,8 +23,7 @@ class EditStockEntry extends EditRecord
             Actions\ViewAction::make(),
             Actions\DeleteAction::make()
                 ->before(function () {
-                    // Check if this stock entry has associated inventory batches
-                    if ($this->record->inventoryBatch()->exists()) {
+                    if ($this->record->inventoryBatches()->exists()) {
                         throw new \Exception('Cannot delete stock entry that has associated inventory batches.');
                     }
                 }),
@@ -35,56 +40,160 @@ class EditStockEntry extends EditRecord
         return Notification::make()
             ->success()
             ->title('Stock Entry Updated')
-            ->body('The stock entry has been updated successfully.');
+            ->body('The stock entry has been updated successfully and inventory batches were reconciled.');
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function mutateFormDataBeforeFill(array $data): array
     {
-        // Ensure total_cost is calculated correctly
-        if (isset($data['quantity_received']) && isset($data['unit_cost'])) {
-            $data['total_cost'] = $data['quantity_received'] * $data['unit_cost'];
-        }
+        $items = $this->record->items()
+            ->with('product')
+            ->get()
+            ->map(function ($item) {
+                $product = $item->product;
+
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_label' => $product ? "{$product->name} ({$product->sku})" : null,
+                    'quantity_received' => $item->quantity_received,
+                    'unit_cost' => (float) $item->unit_cost,
+                    'total_cost' => (float) $item->total_cost,
+                    'selling_price' => (float) $item->selling_price,
+                    'expiry_date' => $item->expiry_date?->format('Y-m-d'),
+                    'batch_number' => $item->batch_number,
+                    'notes' => $item->notes,
+                ];
+            })
+            ->toArray();
+
+        $data['items'] = $items;
 
         return $data;
     }
 
-    protected function afterSave(): void
+    protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Update corresponding inventory batch if it exists
-        $stockEntry = $this->record;
-        $inventoryBatch = $stockEntry->inventoryBatch;
-        
-        if ($inventoryBatch) {
-            // Only update if quantity or expiry date changed
-            $shouldUpdate = false;
-            $updates = [];
-            
-            if ($inventoryBatch->initial_quantity != $stockEntry->quantity_received) {
-                $quantityDiff = $stockEntry->quantity_received - $inventoryBatch->initial_quantity;
-                $updates['initial_quantity'] = $stockEntry->quantity_received;
-                $updates['current_quantity'] = $inventoryBatch->current_quantity + $quantityDiff;
-                $shouldUpdate = true;
+        $items = collect($data['items'] ?? [])
+            ->map(function (array $item) {
+                $quantity = (int) ($item['quantity_received'] ?? 0);
+                $unitCost = round((float) ($item['unit_cost'] ?? 0), 4);
+                $sellingPrice = round((float) ($item['selling_price'] ?? 0), 4);
+                $totalCost = $quantity > 0 && $unitCost > 0 ? round($quantity * $unitCost, 4) : round((float) ($item['total_cost'] ?? 0), 4);
+
+                return array_merge($item, [
+                    'quantity_received' => $quantity,
+                    'unit_cost' => $unitCost,
+                    'selling_price' => $sellingPrice,
+                    'total_cost' => $totalCost,
+                ]);
+            });
+
+        $data['total_quantity'] = $items->sum('quantity_received');
+        $data['total_cost'] = $items->sum('total_cost');
+        $data['items_count'] = $items->count();
+
+        $data['items'] = $items
+            ->map(fn (array $item) => Arr::except($item, ['product_label']))
+            ->toArray();
+
+        return $data;
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return DB::transaction(function () use ($record, $data) {
+            /** @var Collection<int, array> $itemsPayload */
+            $itemsPayload = collect($data['items'] ?? []);
+
+            $summary = [
+                'stock_entry_id' => $record->id,
+                'items_count' => $itemsPayload->count(),
+                'total_quantity' => $itemsPayload->sum('quantity_received'),
+                'total_cost' => $itemsPayload->sum('total_cost'),
+                'product_ids' => $itemsPayload->pluck('product_id')->filter()->values()->all(),
+            ];
+
+            Log::info('EditStockEntry::handleRecordUpdate - incoming payload summary', $summary);
+
+            $record->update(Arr::except($data, ['items']));
+
+            $existingItems = $record->items()->with('inventoryBatch')->get()->keyBy('id');
+
+            $incomingIds = $itemsPayload->pluck('id')->filter()->map(fn ($id) => (int) $id);
+            $deleteIds = $existingItems->keys()->diff($incomingIds);
+
+            if ($deleteIds->isNotEmpty()) {
+                $existingItems
+                    ->only($deleteIds->all())
+                    ->each(function ($item) {
+                        if ($item->inventoryBatch) {
+                            $item->inventoryBatch->delete();
+                        }
+
+                        $item->delete();
+                    });
             }
-            
-            if ($inventoryBatch->expiry_date != $stockEntry->expiry_date) {
-                $updates['expiry_date'] = $stockEntry->expiry_date;
-                $shouldUpdate = true;
+
+            $batchesReconciled = 0;
+
+            foreach ($itemsPayload as $itemData) {
+                $itemId = isset($itemData['id']) ? (int) $itemData['id'] : null;
+                $productId = $itemData['product_id'] ?? null;
+
+                if (!$productId) {
+                    continue;
+                }
+
+                $payload = Arr::only($itemData, [
+                    'product_id',
+                    'quantity_received',
+                    'unit_cost',
+                    'total_cost',
+                    'selling_price',
+                    'expiry_date',
+                    'batch_number',
+                    'notes',
+                ]);
+
+                if ($itemId && $existingItems->has($itemId)) {
+                    $stockEntryItem = $existingItems->get($itemId);
+                    $stockEntryItem->update($payload);
+                } else {
+                    $stockEntryItem = $record->items()->create($payload);
+                }
+
+                $inventoryBatch = $stockEntryItem->inventoryBatch;
+                $newInitialQuantity = $payload['quantity_received'];
+                $batchPayload = [
+                    'product_id' => $productId,
+                    'stock_entry_id' => $record->id,
+                    'stock_entry_item_id' => $stockEntryItem->id,
+                    'batch_number' => $payload['batch_number'] ?: 'BATCH-' . $record->id . '-' . $stockEntryItem->id,
+                    'initial_quantity' => $newInitialQuantity,
+                    'expiry_date' => $payload['expiry_date'] ?? $record->entry_date,
+                    'location' => $inventoryBatch->location ?? 'Main Storage',
+                    'status' => $inventoryBatch->status ?? 'active',
+                ];
+
+                if ($inventoryBatch) {
+                    $quantityDiff = $newInitialQuantity - (int) $inventoryBatch->initial_quantity;
+                    $batchPayload['current_quantity'] = max(0, (float) $inventoryBatch->current_quantity + $quantityDiff);
+                    $inventoryBatch->update($batchPayload);
+                } else {
+                    $batchPayload['current_quantity'] = $newInitialQuantity;
+                    InventoryBatch::create($batchPayload);
+                }
+
+                $batchesReconciled++;
             }
-            
-            if ($inventoryBatch->batch_number != $stockEntry->batch_number && $stockEntry->batch_number) {
-                $updates['batch_number'] = $stockEntry->batch_number;
-                $shouldUpdate = true;
-            }
-            
-            if ($shouldUpdate) {
-                $inventoryBatch->update($updates);
-                
-                Notification::make()
-                    ->success()
-                    ->title('Inventory Updated')
-                    ->body('Related inventory batch has been updated to reflect the changes.')
-                    ->send();
-            }
-        }
+
+            Log::info('EditStockEntry::handleRecordUpdate - reconciliation complete', [
+                'stock_entry_id' => $record->id,
+                'items_count' => $itemsPayload->count(),
+                'batches_reconciled' => $batchesReconciled,
+            ]);
+
+            return $record->fresh(['items.product.unit', 'inventoryBatches']);
+        });
     }
 }

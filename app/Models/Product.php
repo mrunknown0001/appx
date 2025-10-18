@@ -46,9 +46,21 @@ class Product extends Model implements Auditable
         return $this->belongsTo(Unit::class);
     }
 
+    public function stockEntryItems()
+    {
+        return $this->hasMany(StockEntryItem::class);
+    }
+
     public function stockEntries()
     {
-        return $this->hasMany(StockEntry::class);
+        return $this->hasManyThrough(
+            StockEntry::class,
+            StockEntryItem::class,
+            'product_id',
+            'id',
+            'id',
+            'stock_entry_id'
+        )->distinct();
     }
 
     public function inventoryBatches()
