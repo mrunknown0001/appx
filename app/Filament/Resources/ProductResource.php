@@ -126,6 +126,28 @@ class ProductResource extends Resource
                                             ->columnSpanFull(),
                                     ])
                                     ->columns(2),
+
+
+                                Section::make('Stock Level Management')
+                                    ->schema([
+                                        TextInput::make('min_stock_level')
+                                            ->label('Minimum Stock Level')
+                                            ->numeric()
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->helperText('Alert when stock falls below this level')
+                                            ->columnSpan(1),
+
+                                        TextInput::make('max_stock_level')
+                                            ->label('Maximum Stock Level')
+                                            ->numeric()
+                                            ->default(1000)
+                                            ->minValue(0)
+                                            ->helperText('Target maximum inventory level')
+                                            ->columnSpan(1),
+                                    ])
+                                    ->columns(2)
+                                    ->description('Set appropriate stock levels for inventory management'),
                             ]),
 
                         Tabs\Tab::make('Medical Information')
@@ -171,32 +193,9 @@ class ProductResource extends Resource
                                             ->searchable()
                                             ->placeholder('Select dosage form')
                                             ->columnSpan(1),
+
                                     ])
                                     ->columns(2),
-                            ]),
-
-                        Tabs\Tab::make('Inventory Settings')
-                            ->schema([
-                                Section::make('Stock Level Management')
-                                    ->schema([
-                                        TextInput::make('min_stock_level')
-                                            ->label('Minimum Stock Level')
-                                            ->numeric()
-                                            ->default(0)
-                                            ->minValue(0)
-                                            ->helperText('Alert when stock falls below this level')
-                                            ->columnSpan(1),
-
-                                        TextInput::make('max_stock_level')
-                                            ->label('Maximum Stock Level')
-                                            ->numeric()
-                                            ->default(1000)
-                                            ->minValue(0)
-                                            ->helperText('Target maximum inventory level')
-                                            ->columnSpan(1),
-                                    ])
-                                    ->columns(2)
-                                    ->description('Set appropriate stock levels for inventory management'),
                             ]),
                     ])
                     ->columnSpanFull()
