@@ -7,7 +7,7 @@ use App\Filament\Resources\SaleResource\RelationManagers;
 use App\Models\Sale;
 use App\Models\Product;
 use App\Models\InventoryBatch;
-use App\Models\StockEntry;
+use App\Models\StockEntryItem;
 use App\Models\SaleItem;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -139,10 +139,11 @@ class SaleResource extends Resource
                                             ->required()
                                             ->options([
                                                 'cash' => 'Cash',
-                                                'card' => 'Card',
-                                                'digital_wallet' => 'Digital Wallet',
-                                                'bank_transfer' => 'Bank Transfer',
-                                                'credit' => 'Credit',
+                                                'credit_card' => 'Credit Card',
+                                                'debit_card' => 'Debit Card',
+                                                'gcash' => 'GCash',
+                                                'maya' => 'Maya',
+                                                'others'  => 'Others'
                                             ])
                                             ->default('cash')
                                             ->native(false),
@@ -170,10 +171,10 @@ class SaleResource extends Resource
                                                             ->live()
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
-                                                                    $latestSellingPrice = StockEntry::query()
+                                                                    $latestSellingPrice = StockEntryItem::query()
                                                                         ->where('product_id', $state)
                                                                         ->whereNotNull('selling_price')
-                                                                        ->latest('entry_date')
+                                                                        ->latest('created_at')
                                                                         ->value('selling_price');
 
                                                                     $set('unit_price', $latestSellingPrice !== null
@@ -222,10 +223,10 @@ class SaleResource extends Resource
                                                             })
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
-                                                                    $batch = InventoryBatch::find($state);
+                                                                    $batch = InventoryBatch::with('stockEntry')->find($state);
 
-                                                                    if ($batch?->stockEntry?->selling_price !== null) {
-                                                                        $set('unit_price', number_format((float) $batch->stockEntry->selling_price, 2, '.', ''));
+                                                                    if ($batch?->stockEntryItem?->selling_price !== null) {
+                                                                        $set('unit_price', number_format((float) $batch->stockEntryItem->selling_price, 2, '.', ''));
                                                                     }
 
                                                                     $set('total_price', null);
@@ -468,14 +469,18 @@ class SaleResource extends Resource
                     ->colors([
                         'success' => 'cash',
                         'primary' => 'credit_card',
+                        'default' => 'debit-card',
                         'warning' => 'gcash',
                         'danger' => 'maya',
+                        'info' => 'others'
                     ])
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cash' => 'Cash',
-                        'credit_card' => 'Card',
+                        'credit_card' => 'Credit Card',
+                        'debit_card' => 'Debit Card',
                         'gcash' => 'GCash',
                         'maya' => 'Maya',
+                        'others' => 'Others',
                         default => $state,
                     }),
 

@@ -3,11 +3,13 @@
 namespace App\Filament\Resources\StockEntryResource\Pages;
 
 use App\Filament\Resources\StockEntryResource;
-use Filament\Actions;
-use Filament\Resources\Pages\ListRecords;
-use Filament\Resources\Components\Tab;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\Product;
 use App\Models\StockEntry;
+use Illuminate\Support\Facades\Log;
+use Filament\Actions;
+use Filament\Resources\Components\Tab;
+use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListStockEntries extends ListRecords
 {
@@ -24,46 +26,60 @@ class ListStockEntries extends ListRecords
 
     public function getTabs(): array
     {
+        if (! method_exists(StockEntry::class, 'items')) {
+            Log::error('ListStockEntries::getTabs missing StockEntry::items() relationship', [
+                'stock_entry_class' => StockEntry::class,
+                'available_methods_sample' => array_slice(get_class_methods(StockEntry::class), 0, 10),
+            ]);
+        }
+
         return [
             'all' => Tab::make('All Entries')
                 ->badge(fn () => StockEntry::count()),
-            
+
             'recent' => Tab::make('Recent (7 days)')
-                ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->where('entry_date', '>=', now()->subDays(7))
-                )
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('entry_date', '>=', now()->subDays(7)))
                 ->badge(fn () => StockEntry::where('entry_date', '>=', now()->subDays(7))->count()),
-            
-            'expired' => Tab::make('Expired')
-                ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->where('expiry_date', '<', now())
-                )
-                ->badge(fn () => StockEntry::where('expiry_date', '<', now())->count())
-                ->badgeColor('danger'),
-            
-            'expires_soon' => Tab::make('Expires Soon')
-                ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->where('expiry_date', '>=', now())
-                          ->where('expiry_date', '<=', now()->addDays(30))
-                )
-                ->badge(fn () => StockEntry::where('expiry_date', '>=', now())
-                    ->where('expiry_date', '<=', now()->addDays(30))->count())
+
+            'high_value' => Tab::make('High Value')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('total_cost', '>', 10000))
+                ->badge(fn () => StockEntry::where('total_cost', '>', 10000)->count())
                 ->badgeColor('warning'),
-            
-            'this_month' => Tab::make('This Month')
-                ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->whereMonth('entry_date', now()->month)
-                          ->whereYear('entry_date', now()->year)
-                )
-                ->badge(fn () => StockEntry::whereMonth('entry_date', now()->month)
-                    ->whereYear('entry_date', now()->year)->count()),
+
+            'multi_product' => Tab::make('Multiple Products')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('items_count', '>', 1))
+                ->badge(fn () => StockEntry::where('items_count', '>', 1)->count())
+                ->badgeColor('success'),
+
+            'expires_soon' => Tab::make('Items Expiring Soon')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('items', fn (Builder $q) => $q
+                    ->whereNotNull('expiry_date')
+                    ->whereBetween('expiry_date', [now(), now()->addDays(30)])
+                ))
+                ->badge(fn () => StockEntry::whereHas('items', fn (Builder $q) => $q
+                    ->whereNotNull('expiry_date')
+                    ->whereBetween('expiry_date', [now(), now()->addDays(30)])
+                )->count())
+                ->badgeColor('warning'),
+
+            'expired' => Tab::make('Expired Items')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('items', fn (Builder $q) => $q
+                    ->whereNotNull('expiry_date')
+                    ->where('expiry_date', '<', now())
+                ))
+                ->badge(fn () => StockEntry::whereHas('items', fn (Builder $q) => $q
+                    ->whereNotNull('expiry_date')
+                    ->where('expiry_date', '<', now())
+                )->count())
+                ->badgeColor('danger'),
+
         ];
     }
 
     protected function getHeaderWidgets(): array
     {
         return [
-            // You can add widgets here for stock entry statistics
+            // Widgets may be added to surface stock entry KPIs or insights.
         ];
     }
 }
