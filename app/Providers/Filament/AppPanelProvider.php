@@ -26,7 +26,13 @@ class AppPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        \Log::info('Configuring Filament panel', [
+            'provider' => static::class,
+            'dashboard_class' => \App\Filament\Pages\Dashboard::class,
+        ]);
+
         return $panel
+            ->homeUrl(fn () => route('filament.app.pages.dashboard'))
             ->default()
             ->id('app')
             ->path('app')
@@ -37,7 +43,7 @@ class AppPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                AppDashboard::class,
+                'dashboard' => AppDashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([

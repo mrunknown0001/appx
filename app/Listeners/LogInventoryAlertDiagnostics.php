@@ -20,6 +20,7 @@ class LogInventoryAlertDiagnostics
         Session::put('inventory_alert_summary', $service->prepareSummaryForSession($summary));
         Session::put('inventory_alert_total', $totalAlerts);
         Session::put('inventory_alert_last_calculated_at', now()->toDateTimeString());
+        Session::forget('inventory_alert_flash_dismissed');
 
         Log::info('Inventory Alert Diagnostics', [
             'user_id' => $event->user->id,
