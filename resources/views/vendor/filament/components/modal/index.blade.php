@@ -242,16 +242,17 @@
                                         'end-6 top-6' => $slideOver,
                                     ])
                                 >
-                                    <x-filament::icon-button
+                                    {{-- <x-filament::icon-button
                                         color="gray"
-                                        icon="heroicon-o-x-mark"
+                                        icon="heroicon-x-mark"
                                         icon-alias="modal.close-button"
                                         icon-size="lg"
                                         :label="__('filament::components/modal.actions.close.label')"
                                         tabindex="-1"
                                         :x-on:click="$closeEventHandler"
                                         class="fi-modal-close-btn"
-                                    />
+                                    /> --}}
+                                    x
                                 </div>
                             @endif
 
