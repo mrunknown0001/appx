@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use App\Filament\Widgets\SalesPeriodSummaryWidget;
 use App\Filament\Widgets\DetailedSalesBreakdownWidget;
@@ -35,7 +36,7 @@ class Dashboard extends BaseDashboard
             'is_authenticated' => auth()->check(),
         ]);
 
-        parent::mount();
+        // parent::mount();
 
         $summary = session()->pull('inventory_alert_summary', []);
         $total = (int) session()->pull('inventory_alert_total', 0);
@@ -121,7 +122,12 @@ class Dashboard extends BaseDashboard
             $this->shouldShowInventoryAlertBanner = ! $this->inventoryAlertBannerDismissed && filled($this->inventoryAlertBannerMessage);
 
             if ($this->showInventoryAlertModal) {
-                $this->dispatchBrowserEvent('open-modal', ['id' => 'inventory-alert-modal']);
+                // $this->dispatchBrowserEvent('open-modal', ['id' => 'inventory-alert-modal']);
+                Notification::make()
+                    ->warning()
+                    ->title('Dashboard Notification for Products')
+                    ->body('Product Needs to pay attention')
+                    ->send();
             }
 
             Log::info('Inventory alert modal will be shown on dashboard', [

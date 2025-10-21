@@ -7,7 +7,7 @@
                 'inventory_alert_last_calculated_at' => $inventoryAlertLastCalculatedAt ?? null,
             ]);
         @endphp
-        <x-filament::alert
+        {{-- <x-filament::alert
             color="warning"
             icon="heroicon-o-exclamation-triangle"
             class="relative mb-6 pr-10"
@@ -17,7 +17,7 @@
                 class="absolute right-3 top-3 inline-flex items-center rounded-md border border-transparent bg-transparent p-1 text-sm text-warning-700 hover:text-warning-900 focus:outline-none focus:ring-2 focus:ring-warning-500 focus:ring-offset-2 dark:text-warning-400 dark:hover:text-warning-200"
                 wire:click="dismissInventoryAlertBanner"
             >
-                <x-heroicon-o-x-mark class="h-4 w-4" />
+            x
                 <span class="sr-only">Dismiss inventory alerts</span>
             </button>
 
@@ -50,7 +50,7 @@
                     @endforeach
                 </dl>
             @endif
-        </x-filament::alert>
+        </x-filament::alert> --}}
     @endif
 
     @include('filament.components.inventory-alert-modal', [
