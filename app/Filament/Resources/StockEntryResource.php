@@ -100,7 +100,6 @@ class StockEntryResource extends Resource
                 Section::make('Products & Quantities')
                     ->schema([
                         Repeater::make('items')
-                            ->relationship()
                             ->label('Products')
                             ->minItems(1)
                             ->defaultItems(1)

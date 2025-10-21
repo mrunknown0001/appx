@@ -4,8 +4,9 @@ namespace App\Filament\Resources\InventoryBatchResource\Pages;
 
 use App\Filament\Resources\InventoryBatchResource;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth as AuthFacade;
 
 class EditInventoryBatch extends EditRecord
 {
@@ -50,11 +51,12 @@ class EditInventoryBatch extends EditRecord
                         'status' => $newQuantity == 0 ? 'depleted' : $record->status,
                     ]);
 
-                    Notification::make()
-                        ->success()
-                        ->title('Quantity Adjusted')
-                        ->body("Batch quantity adjusted by {$data['adjustment']}. Reason: {$data['reason']}")
-                        ->send();
+                    $this->dispatchInventoryNotification(
+                        Notification::make()
+                            ->success()
+                            ->title('Quantity Adjusted')
+                            ->body("Batch quantity adjusted by {$data['adjustment']}. Reason: {$data['reason']}")
+                    );
                 }),
 
             Actions\DeleteAction::make()
@@ -121,31 +123,57 @@ class EditInventoryBatch extends EditRecord
         
         // Check for low stock after update
         $product = $batch->product;
+        $productName = $product?->name ?? 'This product';
+        $expiryDate = $batch->expiry_date;
+        $daysUntilExpiry = null;
+
+        if ($expiryDate) {
+            $daysUntilExpiry = now()->diffInDays($expiryDate, false);
+        }
+
         if ($product && $batch->current_quantity <= $product->min_stock_level && $batch->status === 'active') {
-            Notification::make()
-                ->warning()
-                ->title('Low Stock Alert')
-                ->body("The current quantity ({$batch->current_quantity}) is at or below the minimum stock level ({$product->min_stock_level}) for {$product->name}.")
-                ->send();
+            $this->dispatchInventoryNotification(
+                Notification::make()
+                    ->warning()
+                    ->title('Low Stock Alert')
+                    ->body("{$productName} has {$batch->current_quantity} in stock (minimum {$product->min_stock_level}).")
+            );
         }
-        
-        // Check for expiry warnings
-        $daysUntilExpiry = $batch->expiry_date->diffInDays(now(), false);
-        if ($daysUntilExpiry <= 30 && $daysUntilExpiry > 0 && $batch->status === 'active') {
-            Notification::make()
-                ->warning()
-                ->title('Expiry Warning')
-                ->body("This batch expires in {$daysUntilExpiry} days. Consider prioritizing its sale.")
-                ->send();
+
+        if ($expiryDate && $daysUntilExpiry !== null && abs($daysUntilExpiry) <= 30 && in_array($batch->status, ['active', 'expired'], true)) {
+            $absDays = abs($daysUntilExpiry);
+
+            $expiryMessage = match (true) {
+                $daysUntilExpiry < 0 => "Batch {$batch->batch_number} for {$productName} expired {$absDays} day" . ($absDays === 1 ? '' : 's') . ' ago.',
+                $daysUntilExpiry === 0 => "Batch {$batch->batch_number} for {$productName} expires today.",
+                default => "Batch {$batch->batch_number} for {$productName} expires in {$daysUntilExpiry} day" . ($daysUntilExpiry === 1 ? '' : 's') . '.',
+            };
+
+            $this->dispatchInventoryNotification(
+                Notification::make()
+                    ->warning()
+                    ->title($daysUntilExpiry < 0 ? 'Expired Batch' : 'Expiry Warning')
+                    ->body($expiryMessage)
+            );
         }
-        
-        // Send summary notification if there were changes
+
         if (!empty($notifications)) {
-            Notification::make()
-                ->info()
-                ->title('Batch Updated')
-                ->body(implode(', ', $notifications))
-                ->send();
+            $this->dispatchInventoryNotification(
+                Notification::make()
+                    ->info()
+                    ->title('Batch Updated')
+                    ->body(implode(', ', $notifications))
+            );
         }
+    }
+
+    private function dispatchInventoryNotification(Notification $notification): void
+    {
+        if ($user = AuthFacade::user()) {
+            $databaseNotification = clone $notification;
+            $databaseNotification->sendToDatabase($user);
+        }
+
+        $notification->send();
     }
 }

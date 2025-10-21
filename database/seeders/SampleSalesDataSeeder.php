@@ -29,7 +29,9 @@ class SampleSalesDataSeeder extends Seeder
         $this->command->info("Found {$products->count()} products. Generating sales history...");
 
         // Generate sales for the last 3 years (36 months)
-        $startDate = Carbon::now()->subYears(2);
+        // $startDate = Carbon::now()->subYears(2);
+        // 4 months Sales data
+        $startDate = Carbon::now()->subMonths(4);
         $endDate = Carbon::now();
 
         $saleNumber = 1000;
@@ -42,7 +44,7 @@ class SampleSalesDataSeeder extends Seeder
             $weekCounter++;
             
             // Create 100-500 sales per week (randomly)
-            $salesPerWeek = rand(300, 500);
+            $salesPerWeek = rand(500, 600);
 
             for ($i = 0; $i < $salesPerWeek; $i++) {
                 // Random date within the week
