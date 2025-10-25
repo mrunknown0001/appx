@@ -455,12 +455,14 @@ class PharmacyAnalyticsService
     }
 
     /**
-     * Get monthly breakdown for charts - shows last 30 days
+     * Get rolling 30-day breakdown for charts
      */
     private function getMonthlyBreakdown(Carbon $startDate, Carbon $endDate): array
     {
-        // Get actual sales data from database
-        $salesData = Sale::whereBetween('sale_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+        $rangeEnd = Carbon::now()->copy()->endOfDay();
+        $rangeStart = $rangeEnd->copy()->subDays(29)->startOfDay();
+
+        $salesData = Sale::whereBetween('sale_date', [$rangeStart, $rangeEnd])
             ->where('status', 'completed')
             ->selectRaw('
                 DATE(sale_date) as date,
@@ -470,26 +472,25 @@ class PharmacyAnalyticsService
             ->groupBy(DB::raw('DATE(sale_date)'))
             ->get()
             ->keyBy('date');
-        
-        // Generate all days in the range (last 30 days or month to date)
+
         $data = [];
-        $current = Carbon::now()->subDays(29)->startOfDay(); // Last 30 days including today
-        $end = Carbon::now()->endOfDay();
-        
+        $current = $rangeStart->copy();
+        $end = $rangeEnd->copy();
+
         while ($current->lte($end)) {
             $dateKey = $current->format('Y-m-d');
             $dayData = $salesData->get($dateKey);
-            
+
             $data[] = [
                 'date' => $dateKey,
                 'day_short' => $current->format('M j'), // e.g., "Oct 3"
                 'transactions' => $dayData ? (int) $dayData->transactions : 0,
                 'revenue' => $dayData ? (float) $dayData->revenue : 0,
             ];
-            
+
             $current->addDay();
         }
-        
+
         return $data;
     }
 

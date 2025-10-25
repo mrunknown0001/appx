@@ -32,22 +32,22 @@ class ListInventoryBatches extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'active'))
                 ->badge(fn () => InventoryBatch::where('status', 'active')->count()),
             
-            'low_stock' => Tab::make('Low Stock')
-                ->modifyQueryUsing(function (Builder $query) {
-                    return $query->whereHas('product', function ($q) {
-                        $q->whereRaw('inventory_batches.current_quantity <= products.min_stock_level');
-                    })->where('status', 'active');
-                })
-                ->badge(fn () => $this->getLowStockCount())
-                ->badgeColor('warning'),
+            // 'low_stock' => Tab::make('Low Stock')
+            //     ->modifyQueryUsing(function (Builder $query) {
+            //         return $query->whereHas('product', function ($q) {
+            //             $q->whereRaw('inventory_batches.current_quantity <= products.min_stock_level');
+            //         })->where('status', 'active');
+            //     })
+            //     ->badge(fn () => $this->getLowStockCount())
+            //     ->badgeColor('warning'),
             
-            'out_of_stock' => Tab::make('Out of Stock')
-                ->modifyQueryUsing(fn (Builder $query) => 
-                    $query->where('current_quantity', '<=', 0)->where('status', 'out_of_stock')
-                )
-                ->badge(fn () => InventoryBatch::where('current_quantity', '<=', 0)
-                    ->where('status', 'out_of_stock')->count())
-                ->badgeColor('danger'),
+            // 'out_of_stock' => Tab::make('Out of Stock')
+            //     ->modifyQueryUsing(fn (Builder $query) => 
+            //         $query->where('current_quantity', '<=', 0)->where('status', 'out_of_stock')
+            //     )
+            //     ->badge(fn () => InventoryBatch::where('current_quantity', '<=', 0)
+            //         ->where('status', 'out_of_stock')->count())
+            //     ->badgeColor('danger'),
             
             'expiring_soon' => Tab::make('Expiring Soon')
                 ->modifyQueryUsing(fn (Builder $query) => 

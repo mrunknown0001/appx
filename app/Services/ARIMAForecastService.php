@@ -126,21 +126,30 @@ class ARIMAForecastService
         foreach ($salesForecast as $prodId => $forecast) {
             $product = $forecast['product'];
             $currentStock = $this->getCurrentStock($prodId);
-            
-            // Calculate cumulative forecasted demand
-            $cumulativeDemand = 0;
+            $projectedStock = (float) $currentStock;
             $restockPoints = [];
             
             foreach ($forecast['forecasted_quantities'] as $index => $forecastedQty) {
-                $cumulativeDemand += $forecastedQty;
-                
-                // Check if restock is needed
-                if ($currentStock - $cumulativeDemand <= $product->min_stock_level) {
+                $projectedStock -= $forecastedQty;
+
+                $stockBeforeRestock = $projectedStock;
+
+                if ($stockBeforeRestock <= $product->min_stock_level) {
+                    $recommendedQty = $this->calculateRecommendedRestockQuantity(
+                        product: $product,
+                        projectedStockBeforeRestock: $stockBeforeRestock,
+                        forecastedQty: $forecastedQty
+                    );
+
+                    $projectedStock = max(0, $projectedStock) + $recommendedQty;
+
                     $restockPoints[] = [
                         'period' => $forecast['forecast_dates'][$index],
-                        'recommended_quantity' => ceil($forecastedQty * 1.2), // 20% buffer
-                        'current_stock_projection' => max(0, $currentStock - $cumulativeDemand),
-                        'urgency' => $this->calculateUrgency($currentStock - $cumulativeDemand, $product->min_stock_level),
+                        'recommended_quantity' => $recommendedQty,
+                        'projected_stock_before_restock' => round(max(0, $stockBeforeRestock), 2),
+                        'projected_stock_after_restock' => round($projectedStock, 2),
+                        'current_stock_projection' => round($projectedStock, 2),
+                        'urgency' => $this->calculateUrgency($stockBeforeRestock, $product->min_stock_level),
                     ];
                 }
             }
@@ -495,5 +504,25 @@ class ARIMAForecastService
             $ratio <= 1.0 => 'MEDIUM',
             default => 'LOW',
         };
+    }
+
+    /**
+     * Determine the recommended restock quantity to recover from projected shortages.
+     */
+    private function calculateRecommendedRestockQuantity(Product $product, float $projectedStockBeforeRestock, float $forecastedQty): int
+    {
+        $bufferedDemand = max($forecastedQty * 1.2, $product->min_stock_level);
+        $desiredStock = max(
+            $product->min_stock_level + $bufferedDemand,
+            $bufferedDemand
+        );
+
+        if ($product->max_stock_level > 0) {
+            $desiredStock = min($desiredStock, (float) $product->max_stock_level);
+        }
+
+        $shortage = $desiredStock - max(0, $projectedStockBeforeRestock);
+
+        return (int) max(1, ceil($shortage));
     }
 }

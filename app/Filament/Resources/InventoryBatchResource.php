@@ -497,25 +497,4 @@ class InventoryBatchResource extends Resource
             ->with(['product.unit', 'stockEntry'])
             ->orderBy('created_at', 'desc');
     }
-
-    public static function getNavigationBadge(): ?string
-    {
-        $lowStockCount = static::getModel()::whereHas('product', function ($query) {
-            $query->whereRaw('inventory_batches.current_quantity <= products.min_stock_level');
-        })->where('status', 'active')->count();
-
-        $expiringSoonCount = static::getModel()::where('expiry_date', '<=', now()->addDays(30))
-            ->where('expiry_date', '>', now())
-            ->where('status', 'active')
-            ->count();
-
-        $alertCount = $lowStockCount + $expiringSoonCount;
-
-        return $alertCount > 0 ? (string) $alertCount : null;
-    }
-
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return static::getNavigationBadge() ? 'warning' : null;
-    }
 }

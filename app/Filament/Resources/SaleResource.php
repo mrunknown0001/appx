@@ -26,6 +26,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -462,7 +463,12 @@ class SaleResource extends Resource
                     ->money('PHP')
                     ->sortable()
                     ->weight(FontWeight::Bold)
-                    ->color('success'),
+                    ->color('success')
+                    ->summarize([
+                        Sum::make()
+                            ->label('Grand Total')
+                            ->money('PHP'),
+                    ]),
 
                 BadgeColumn::make('payment_method')
                     ->label('Payment')

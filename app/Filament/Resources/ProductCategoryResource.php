@@ -24,6 +24,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Exceptions\Halt;
 
 class ProductCategoryResource extends Resource
 {
@@ -266,6 +267,19 @@ class ProductCategoryResource extends Resource
                                             ->send();
                                     } elseif ($data['products_action'] === 'delete') {
                                         $deletedCount = $record->products()->count();
+
+                                        // check a product has stock entries or sales record
+                                        foreach($record->products as $product) {
+                                            if($product->stockEntries()->count() > 0 || $product->saleItems()->count() > 0) {
+                                                Notification::make()
+                                                    ->warning()
+                                                    ->title("Products unable to delete.")
+                                                    ->body("{$product->name} products has Stock Entry or Sales Record")
+                                                    ->send();
+                                                return;
+                                            }
+                                        }
+
                                         $record->products()->delete();
                                         
                                         Notification::make()

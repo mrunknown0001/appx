@@ -31,6 +31,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Forms\Components\Grid;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\ColorColumn;
+use Illuminate\Support\Facades\DB;
 
 class ProductResource extends Resource
 {
@@ -388,12 +389,26 @@ class ProductResource extends Resource
                         ->url(fn (Product $record): string => route('filament.app.resources.stock-entries.index', ['tableFilters[product_id][value]' => $record->id]))
                         ->openUrlInNewTab(),
                     Tables\Actions\DeleteAction::make()
-                        ->before(function (Product $record) {
+                        ->before(function (Tables\Actions\DeleteAction $action, Product $record) {
                             if ($record->stockEntries()->count() > 0) {
-                                throw new \Exception('Cannot delete product that has stock entries.');
+                                // throw new \Exception('Cannot delete product that has stock entries.');
+                                Notification::make()
+                                    ->title('Product Deletion Failed: ' . $record->name)
+                                    ->body('Cannot delete product that has stock entries.')
+                                    ->warning()
+                                    ->send();
+                                $action->cancel();
+                                return;
                             }
                             if ($record->saleItems()->count() > 0) {
-                                throw new \Exception('Cannot delete product that has sales history.');
+                                // throw new \Exception('Cannot delete product that has sales history.');
+                                Notification::make()
+                                    ->title('Product Deletion Failed: ' . $record->name)
+                                    ->body('Cannot delete product that has sales history.')
+                                    ->warning()
+                                    ->send();
+                                $action->cancel();
+                                return;
                             }
                         }),
                     Tables\Actions\RestoreAction::make(),
@@ -403,10 +418,15 @@ class ProductResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->before(function ($records) {
+                        ->before(function (Tables\Actions\DeleteBulkAction $action, $records) {
                             foreach ($records as $record) {
                                 if ($record->stockEntries()->count() > 0 || $record->saleItems()->count() > 0) {
-                                    throw new \Exception('Cannot delete products that have stock entries or sales history.');
+                                    Notification::make()
+                                        ->title("Cannot delete product: {$record->name}")
+                                        ->body('Cannot delete products that have stock entries or sales history.')
+                                        ->warning()
+                                        ->send();
+                                    $action->cancel();
                                 }
                             }
                         }),
@@ -485,5 +505,50 @@ class ProductResource extends Resource
             'Category' => $record->category?->name,
             'Manufacturer' => $record->manufacturer,
         ];
+    }
+
+
+    protected static function getStockAlertCounts(): array
+    {
+        $lowStock = (int) DB::table('product_stocks')
+            ->where('stock_status', 'low_stock')
+            ->count();
+
+        $outOfStock = (int) Product::leftJoin('inventory_batches', function ($join) {
+                $join->on('products.id', '=', 'inventory_batches.product_id')
+                    ->where('inventory_batches.expiry_date', '>', now())
+                    ->where('inventory_batches.status', '=', 'active');
+            })
+            ->selectRaw('products.id, COALESCE(SUM(inventory_batches.current_quantity), 0) as total_stock')
+            ->groupBy('products.id')
+            ->havingRaw('total_stock = 0')
+            ->count();
+
+        return [
+            'low' => $lowStock,
+            'out' => $outOfStock,
+        ];
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $counts = static::getStockAlertCounts();
+
+        if ($counts['low'] === 0 && $counts['out'] === 0) {
+            return null;
+        }
+
+        return sprintf('Low: %d • OOS: %d', $counts['low'], $counts['out']);
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $counts = static::getStockAlertCounts();
+
+        return match (true) {
+            $counts['out'] > 0 => 'danger',
+            $counts['low'] > 0 => 'warning',
+            default => null,
+        };
     }
 }
