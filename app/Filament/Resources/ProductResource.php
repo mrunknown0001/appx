@@ -31,6 +31,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Forms\Components\Grid;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\ColorColumn;
+use Illuminate\Support\Facades\DB;
 
 class ProductResource extends Resource
 {
@@ -507,13 +508,47 @@ class ProductResource extends Resource
     }
 
 
+    protected static function getStockAlertCounts(): array
+    {
+        $lowStock = (int) DB::table('product_stocks')
+            ->where('stock_status', 'low_stock')
+            ->count();
+
+        $outOfStock = (int) Product::leftJoin('inventory_batches', function ($join) {
+                $join->on('products.id', '=', 'inventory_batches.product_id')
+                    ->where('inventory_batches.expiry_date', '>', now())
+                    ->where('inventory_batches.status', '=', 'active');
+            })
+            ->selectRaw('products.id, COALESCE(SUM(inventory_batches.current_quantity), 0) as total_stock')
+            ->groupBy('products.id')
+            ->havingRaw('total_stock = 0')
+            ->count();
+
+        return [
+            'low' => $lowStock,
+            'out' => $outOfStock,
+        ];
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        return "";
+        $counts = static::getStockAlertCounts();
+
+        if ($counts['low'] === 0 && $counts['out'] === 0) {
+            return null;
+        }
+
+        return sprintf('Low: %d • OOS: %d', $counts['low'], $counts['out']);
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getNavigationBadge() ? 'warning' : null;
+        $counts = static::getStockAlertCounts();
+
+        return match (true) {
+            $counts['out'] > 0 => 'danger',
+            $counts['low'] > 0 => 'warning',
+            default => null,
+        };
     }
 }
