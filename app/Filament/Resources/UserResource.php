@@ -17,6 +17,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Notifications\Notification;
 
 
 class UserResource extends Resource
@@ -341,6 +342,39 @@ class UserResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('resetPassword')
+                    ->label('Reset Password')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->modalHeading('Reset User Password')
+                    ->modalSubheading('Enter a new password for this user.')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('password')
+                            ->label('New Password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->minLength(8)
+                            ->same('password_confirmation'),
+
+                        \Filament\Forms\Components\TextInput::make('password_confirmation')
+                            ->label('Confirm Password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->minLength(8),
+                    ])
+                    ->action(function (array $data, $record) {
+                        $record->update([
+                            'password' => Hash::make($data['password']),
+                        ]);
+                        
+                        Notification::make()
+                            ->title('Password Reset')
+                            ->body('The user’s password has been successfully reset.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

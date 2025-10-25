@@ -6,6 +6,8 @@ use App\Filament\Resources\ProductResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use App\Models\Product;
+use Filament\Support\Exceptions\Halt;
 
 class EditProduct extends EditRecord
 {
@@ -16,12 +18,31 @@ class EditProduct extends EditRecord
         return [
             Actions\ViewAction::make(),
             Actions\DeleteAction::make()
-                ->before(function () {
-                    if ($this->record->stockEntries()->count() > 0) {
-                        throw new \Exception('Cannot delete product that has stock entries.');
+                ->before(function (Actions\DeleteAction $action, Product $record) {
+                    // 🚫 Check stock entries
+                    if ($record->stockEntries()->exists()) {
+                        
+                        Notification::make()
+                        ->title("Cannot delete product: {$record->name}")
+                        ->body('This product has stock entries and cannot be deleted.')
+                        ->warning()
+                        ->send();
+                        
+                        $action->cancel();
+                        throw new Halt();
                     }
-                    if ($this->record->saleItems()->count() > 0) {
-                        throw new \Exception('Cannot delete product that has sales history.');
+
+                    // 🚫 Check sales history
+                    if ($record->saleItems()->exists()) {
+                        
+                        Notification::make()
+                        ->title("Cannot delete product: {$record->name}")
+                        ->body('This product has sales history and cannot be deleted.')
+                        ->warning()
+                        ->send();
+                        
+                        $action->cancel(); 
+                        throw new Halt();
                     }
                 }),
             Actions\RestoreAction::make(),
@@ -44,9 +65,7 @@ class EditProduct extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Convert SKU to uppercase
         $data['sku'] = strtoupper($data['sku']);
-
         return $data;
     }
 }
