@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use App\Filament\Widgets\SalesPeriodSummaryWidget;
 use App\Filament\Widgets\DetailedSalesBreakdownWidget;
@@ -58,6 +57,16 @@ class Dashboard extends BaseDashboard
             'summary_counts' => is_array($summary) ? collect($summary)->map(fn ($section) => $section['count'] ?? null)->all() : null,
             'total_alerts' => $total,
             'timestamp_present' => ! empty($timestamp),
+        ]);
+
+        $themeCookie = request()->cookie('filament_app_theme');
+        $themeSession = session('filament_app_theme');
+        $prefersDarkTheme = in_array('dark', [$themeCookie, $themeSession], true);
+
+        Log::info('Inventory alert modal theme context captured', [
+            'theme_cookie' => $themeCookie,
+            'theme_session' => $themeSession,
+            'interpreted_prefers_dark' => $prefersDarkTheme,
         ]);
 
         $this->inventoryAlertBannerMessage = '';
@@ -121,19 +130,21 @@ class Dashboard extends BaseDashboard
             $this->showInventoryAlertModal = $this->inventoryAlertTotal > 0;
             $this->shouldShowInventoryAlertBanner = ! $this->inventoryAlertBannerDismissed && filled($this->inventoryAlertBannerMessage);
 
-            if ($this->showInventoryAlertModal) {
-                // $this->dispatchBrowserEvent('open-modal', ['id' => 'inventory-alert-modal']);
-                Notification::make()
-                    ->warning()
-                    ->title('Dashboard Notification for Products')
-                    ->body('Product Needs to pay attention')
-                    ->send();
-            }
-
             Log::info('Inventory alert modal will be shown on dashboard', [
                 'total_alerts' => $this->inventoryAlertTotal,
                 'timestamp' => $this->inventoryAlertLastCalculatedAt,
+                'banner_message' => $this->inventoryAlertBannerMessage,
+                'show_modal_flag' => $this->showInventoryAlertModal,
             ]);
+
+            if ($this->showInventoryAlertModal) {
+                Log::info('Inventory alert modal dispatching open-modal event', [
+                    'event' => 'open-modal',
+                    'modal_id' => 'inventory-alert-modal',
+                ]);
+
+                $this->dispatch('open-modal', id: 'inventory-alert-modal');
+            }
         } else {
             $this->showInventoryAlertModal = false;
             $this->inventoryAlertBannerMessage = '';
@@ -156,7 +167,51 @@ class Dashboard extends BaseDashboard
         session()->put('inventory_alert_flash_dismissed', true);
     }
 
+    public function acknowledgeInventoryAlerts(): void
+    {
+        $this->inventoryAlertBannerDismissed = true;
+        $this->shouldShowInventoryAlertBanner = false;
+        $this->showInventoryAlertModal = false;
+        $this->inventoryAlertBannerMessage = '';
+        $this->inventoryAlertSummary = [];
+        $this->inventoryAlertCounts = [];
+        $this->inventoryAlertTotal = 0;
+        $this->inventoryAlertLastCalculatedAt = null;
 
+        session()->put('inventory_alert_flash_dismissed', true);
+
+        Log::info('Inventory alert modal dispatching close-modal event', [
+            'event' => 'close-modal',
+            'modal_id' => 'inventory-alert-modal',
+        ]);
+
+        $this->dispatch('close-modal', id: 'inventory-alert-modal');
+
+        Log::info('Inventory alert modal dismissed by user', [
+            'total_alerts' => $this->inventoryAlertTotal,
+        ]);
+
+        $this->redirectRoute('filament.app.pages.dashboard');
+    }
+
+    public function initializeInventoryAlertModal(): void
+    {
+        Log::info('Inventory alert modal wire:init invoked', [
+            'show_modal_flag' => $this->showInventoryAlertModal,
+            'total_alerts' => $this->inventoryAlertTotal,
+        ]);
+
+        if (! $this->showInventoryAlertModal) {
+            return;
+        }
+
+        $this->dispatch('open-modal', id: 'inventory-alert-modal');
+
+        Log::info('Inventory alert modal open-modal dispatched from wire:init', [
+            'event' => 'open-modal',
+            'modal_id' => 'inventory-alert-modal',
+        ]);
+    }
 
     public function getWidgets(): array
     {

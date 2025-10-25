@@ -1,15 +1,3 @@
-<?php
-/**
- * Inventory alert modal fragment rendered from the dashboard view.
- *
- * Expects the following variables to be provided by the caller:
- * - $summary: array keyed by alert type containing alert data
- * - $totalAlerts: integer total alert count
- * - $lastCalculatedAt: string|null timestamp describing when alerts were calculated
- * - $shouldShow: boolean toggle indicating whether the modal should render
- */
-?>
-
 @php
     $summary = $summary ?? [];
     $totalAlerts = $totalAlerts ?? 0;
@@ -50,41 +38,52 @@
 
 @if ($hasAlerts)
     <div
+        wire:init="initializeInventoryAlertModal"
         x-data="{
             shouldShow: @json($hasAlerts),
             hasOpened: false,
             openModal() {
-                if (!this.shouldShow || this.hasOpened) {
+                if (! this.shouldShow || this.hasOpened) {
                     return;
                 }
 
                 this.hasOpened = true;
-                window.dispatchEvent(new CustomEvent('open-modal', { detail: { id: 'inventory-alert-modal' } }));
+
+                window.dispatchEvent(
+                    new CustomEvent('open-modal', {
+                        detail: { id: 'inventory-alert-modal', source: 'inventory-alert-wrapper' },
+                    }),
+                );
             },
-            dismiss() {
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: { id: 'inventory-alert-modal' } }));
-            }
+            dismissModal() {
+                window.dispatchEvent(
+                    new CustomEvent('close-modal', {
+                        detail: { id: 'inventory-alert-modal', source: 'inventory-alert-wrapper' },
+                    }),
+                );
+            },
         }"
         x-init="openModal()"
-        class="hidden"
+        x-on:inventory-alert-reopen.window="openModal()"
     >
         <x-filament::modal
             id="inventory-alert-modal"
             alignment="center"
             width="5xl"
+            :close-button="false"
             :close-by-clicking-away="false"
             :close-by-escaping="false"
             sticky-header
         >
-            <x-slot name="heading">
-                Inventory Alerts
-            </x-slot>
+    <x-slot name="heading">
+        Inventory Alerts
+    </x-slot>
 
-            <x-slot name="description">
-                {{ $totalAlerts }} alert{{ $totalAlerts === 1 ? '' : 's' }} detected{{ $lastCalculatedAt ? ' on ' . \Illuminate\Support\Carbon::parse($lastCalculatedAt)->timezone(config('app.timezone'))->format('M d, Y g:i A') : '' }}. Review the items below.
-            </x-slot>
+        <x-slot name="description">
+            {{ $totalAlerts }} alert{{ $totalAlerts === 1 ? '' : 's' }} detected{{ $lastCalculatedAt ? ' on ' . \Illuminate\Support\Carbon::parse($lastCalculatedAt)->timezone(config('app.timezone'))->format('M d, Y g:i A') : '' }}. Review the items below.
+        </x-slot>
 
-            <div class="space-y-6">
+        <div class="space-y-6">
                 @foreach ($orderedKeys as $key)
                     @php
                         $section = $summary[$key] ?? null;
@@ -107,8 +106,8 @@
                         ];
                     @endphp
 
-                    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900/60">
-                        <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/70">
+                    <div class="overflow-hidden rounded-xl border border-gray-200 shadow-sm dark:border-gray-700 dark:bg-gray-900/60">
+                        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700 ">
                             <div class="flex items-center gap-3">
                                 <x-filament::icon :icon="$meta['icon']" :class="$meta['colorClass'] . ' h-5 w-5'" />
                                 <div>
@@ -124,8 +123,8 @@
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
-                                <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/70 dark:text-gray-400">
+                            <table class="min-w-full w-full divide-y divide-gray-200  text-sm dark:divide-gray-800 dark:bg-gray-900">
+                                <thead class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     @if (in_array($key, ['out_of_stock', 'low_stock'], true))
                                         <tr>
                                             <th class="px-4 py-2 text-left">Product</th>
@@ -144,15 +143,15 @@
                                         </tr>
                                     @endif
                                 </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                                <tbody class="divide-y divide-gray-200  dark:divide-gray-800 dark:bg-gray-900/40">
                                     @foreach ($previewItems as $item)
                                         @if (in_array($key, ['out_of_stock', 'low_stock'], true))
-                                            <tr>
-                                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{{ $item['name'] ?? 'Unknown' }}</td>
-                                                <td class="px-4 py-2 text-gray-600 dark:text-gray-300">{{ $item['sku'] ?? '—' }}</td>
-                                                <td class="px-4 py-2 text-right text-gray-900 dark:text-gray-100">{{ number_format($item['current_stock'] ?? 0) }}</td>
-                                                <td class="px-4 py-2 text-right text-gray-900 dark:text-gray-100">{{ number_format($item['min_stock_level'] ?? 0) }}</td>
-                                                <td class="px-4 py-2 text-gray-600 dark:text-gray-300">{{ $item['category'] ?? '—' }}</td>
+                                            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900/60 dark:even:bg-gray-900/40">
+                                                <td class="px-4 py-2 font-medium text-gray-600 dark:text-gray-400">{{ $item['name'] ?? 'Unknown' }}</td>
+                                                <td class="px-4 py-2 text-gray-600 dark:text-gray-400">{{ $item['sku'] ?? '—' }}</td>
+                                                <td class="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{{ number_format($item['current_stock'] ?? 0) }}</td>
+                                                <td class="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{{ number_format($item['min_stock_level'] ?? 0) }}</td>
+                                                <td class="px-4 py-2 text-gray-600 dark:text-gray-400">{{ $item['category'] ?? '—' }}</td>
                                             </tr>
                                         @else
                                             @php
@@ -162,7 +161,7 @@
                                                     ? ($item['days_overdue'] ?? 0)
                                                     : ($item['days_remaining'] ?? 0);
                                             @endphp
-                                            <tr>
+                                            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900/60 dark:even:bg-gray-900/40">
                                                 <td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{{ $item['product_name'] ?? 'Unknown' }}</td>
                                                 <td class="px-4 py-2 text-gray-600 dark:text-gray-300">{{ $item['batch_number'] ?? '—' }}</td>
                                                 <td class="px-4 py-2 text-right text-gray-900 dark:text-gray-100">{{ number_format($qty) }}</td>
@@ -186,25 +185,29 @@
                 @endforeach
             </div>
 
-            <x-slot name="footer">
-                <div class="flex w-full flex-wrap items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <span>Address these alerts through the inventory and batch listings.</span>
-                    <div class="flex items-center gap-2">
-                        <x-filament::button
-                            color="gray"
-                            outlined
-                            type="button"
-                            href="{{ route('filament.app.resources.products.index') }}"
-                        >
-                            Manage Products
-                        </x-filament::button>
+        <x-slot name="footer">
+            <div class="flex w-full flex-wrap items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span>Address these alerts through the inventory and batch listings.</span>
+                <div class="flex items-center gap-2">
+                    <x-filament::button
+                        tag="a"
+                        color="gray"
+                        outlined
+                        href="{{ route('filament.app.resources.products.index') }}"
+                    >
+                        Manage Products
+                    </x-filament::button>
 
-                        <x-filament::button color="primary" x-on:click="dismiss()" type="button">
-                            Dismiss
-                        </x-filament::button>
-                    </div>
+                    <x-filament::button
+                        color="primary"
+                        type="button"
+                        x-on:click.prevent="dismissModal(); $wire.acknowledgeInventoryAlerts()"
+                    >
+                        Close Alerts
+                    </x-filament::button>
                 </div>
-            </x-slot>
+            </div>
+        </x-slot>
         </x-filament::modal>
     </div>
 @endif
