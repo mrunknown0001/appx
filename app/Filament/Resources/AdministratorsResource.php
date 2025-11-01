@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
+use App\Filament\Resources\AdministratorsResource\Pages;
+use App\Filament\Resources\AdministratorsResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -19,19 +19,17 @@ use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Notifications\Notification;
 
-
-class UserResource extends Resource
+class AdministratorsResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationLabel = 'Employee Record';
-
-    protected static ?string $pluralLabel = 'Employee Records';
-
-    protected static ?string $navigationIcon = 'heroicon-o-user-group';
-
     protected static ?string $navigationGroup = 'User Management';
 
+        protected static ?string $navigationLabel = 'Administrator';
+
+    protected static ?string $pluralLabel = 'Administrators';
+
+    protected static ?string $navigationIcon = 'heroicon-o-users';
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'email', 'employee_id'];
@@ -119,10 +117,9 @@ class UserResource extends Resource
                                 Forms\Components\Select::make('role')
                                     ->label('User Role')
                                     ->options([
-                                        'user' => 'User',
-                                        'manager' => 'Manager',
+                                        'admin' => 'Administrator',
                                     ])
-                                    ->default('user')
+                                    ->default('admin')
                                     ->required()
                                     ->searchable()
                                     ->preload()
@@ -155,6 +152,8 @@ class UserResource extends Resource
                                 Forms\Components\TextInput::make('position')
                                     ->label('Position')
                                     ->required()
+                                    ->readOnly()
+                                    ->default('Administrator')
                                     ->maxLength(100)
                                     ->columnSpan(1),
 
@@ -172,6 +171,7 @@ class UserResource extends Resource
                                 DatePicker::make('date_hired')
                                     ->label('Date Hired')
                                     ->required()
+                                    ->default(now())
                                     ->prefixIcon('heroicon-m-calendar')
                                     ->columnSpan(1),
                         ])
@@ -341,40 +341,40 @@ class UserResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\Action::make('resetPassword')
-                    ->label('Reset Password')
-                    ->icon('heroicon-o-key')
-                    ->color('warning')
-                    ->modalHeading('Reset User Password')
-                    ->modalSubheading('Enter a new password for this user.')
-                    ->form([
-                        \Filament\Forms\Components\TextInput::make('password')
-                            ->label('New Password')
-                            ->password()
-                            ->revealable()
-                            ->required()
-                            ->minLength(8)
-                            ->same('password_confirmation'),
+                // Tables\Actions\Action::make('resetPassword')
+                //     ->label('Reset Password')
+                //     ->icon('heroicon-o-key')
+                //     ->color('warning')
+                //     ->modalHeading('Reset User Password')
+                //     ->modalSubheading('Enter a new password for this user.')
+                //     ->form([
+                //         \Filament\Forms\Components\TextInput::make('password')
+                //             ->label('New Password')
+                //             ->password()
+                //             ->revealable()
+                //             ->required()
+                //             ->minLength(8)
+                //             ->same('password_confirmation'),
 
-                        \Filament\Forms\Components\TextInput::make('password_confirmation')
-                            ->label('Confirm Password')
-                            ->password()
-                            ->revealable()
-                            ->required()
-                            ->minLength(8),
-                    ])
-                    ->action(function (array $data, $record) {
-                        $record->update([
-                            'password' => Hash::make($data['password']),
-                        ]);
+                //         \Filament\Forms\Components\TextInput::make('password_confirmation')
+                //             ->label('Confirm Password')
+                //             ->password()
+                //             ->revealable()
+                //             ->required()
+                //             ->minLength(8),
+                //     ])
+                //     ->action(function (array $data, $record) {
+                //         $record->update([
+                //             'password' => Hash::make($data['password']),
+                //         ]);
                         
-                        Notification::make()
-                            ->title('Password Reset')
-                            ->body('The user’s password has been successfully reset.')
-                            ->success()
-                            ->send();
-                    }),
-                Tables\Actions\EditAction::make(),
+                //         Notification::make()
+                //             ->title('Password Reset')
+                //             ->body('The user’s password has been successfully reset.')
+                //             ->success()
+                //             ->send();
+                //     }),
+                // Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
@@ -394,20 +394,20 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListUsers::route('/'),
-            'create' => Pages\CreateUser::route('/create'),
-            'edit' => Pages\EditUser::route('/{record}/edit'),
+            'index' => Pages\ListAdministrators::route('/'),
+            'create' => Pages\CreateAdministrators::route('/create'),
+            'edit' => Pages\EditAdministrators::route('/{record}/edit'),
         ];
     }
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager']);
+        return in_array(auth()->user()->role, ['admin']);
     }
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('role', '!=', 'admin');
+            ->where('role', 'admin');
     }
 }
