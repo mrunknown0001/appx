@@ -169,4 +169,9 @@ class AuditResource extends Resource
             default => (string) $value,
         };
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'manager']);
+    }
 }
