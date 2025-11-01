@@ -5,12 +5,14 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AuditResource\Pages;
 use App\Filament\Resources\AuditResource\RelationManagers;
 use App\Models\Audit;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 
@@ -42,11 +44,21 @@ class AuditResource extends Resource
                     ->description(fn ($record) => optional($record->created_at)?->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('performed_by')
                     ->label('Performed By')
                     ->icon('heroicon-o-user')
-                    ->formatStateUsing(fn ($state, $record) => $record->user?->name ?? 'System')
-                    ->description(fn ($record) => $record->user_id ? "ID: {$record->user_id}" : null)
+                    ->state(fn ($record) => self::resolveActorLabel($record))
+                    ->description(function ($record) {
+                        if ($record->user_id) {
+                            return "ID: {$record->user_id}";
+                        }
+
+                        if (self::isLoginAudit($record) && $record->auditable_id) {
+                            return "User ID: {$record->auditable_id}";
+                        }
+
+                        return null;
+                    })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->where(function (Builder $query) use ($search) {
                             $query
@@ -56,23 +68,32 @@ class AuditResource extends Resource
                                 });
                         });
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('event')
                     ->label('Event')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? Str::headline($state) : 'Unknown')
-                    ->color(fn (?string $state) => match ($state) {
-                        'created' => 'success',
-                        'updated' => 'warning',
-                        'deleted' => 'danger',
-                        'restored' => 'info',
-                        default => 'gray',
+                    ->formatStateUsing(fn (?string $state, $record) => self::resolveEventLabel($record))
+                    ->color(fn (?string $state, $record) => self::resolveEventColor($record))
+                    ->description(function ($record) {
+                        $subjectType = $record->auditable_type ? class_basename($record->auditable_type) : 'Record';
+                        $label = self::resolveAuditableLabel($record);
+
+                        if ($label) {
+                            return "Action performed on {$subjectType}: {$label}";
+                        }
+
+                        if ($record->auditable_id) {
+                            return "Action performed on {$subjectType} #{$record->auditable_id}";
+                        }
+
+                        return "Action performed on {$subjectType}";
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('auditable_type')
                     ->label('Subject')
                     ->formatStateUsing(fn (?string $state) => $state ? class_basename($state) : '—')
-                    ->description(fn ($record) => $record->auditable_id ? "#{$record->auditable_id}" : null)
+                    ->description(fn ($record) => self::resolveAuditableLabel($record) ?? ($record->auditable_id ? "#{$record->auditable_id}" : null))
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('old_values')
@@ -128,6 +149,157 @@ class AuditResource extends Resource
                     // Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function getTableQuery(): Builder
+    {
+        return parent::getTableQuery()->with(['user', 'auditable']);
+    }
+
+    protected static function resolveAuditableLabel(\OwenIt\Auditing\Models\Audit $record): ?string
+    {
+        $auditable = $record->auditable;
+
+        if ($auditable instanceof Model) {
+            $label = self::resolveModelDisplayName($auditable);
+
+            if (filled($label)) {
+                return $label;
+            }
+        }
+
+        if ($record->auditable_id) {
+            return "#{$record->auditable_id}";
+        }
+
+        return null;
+    }
+
+    protected static function resolveActorLabel(\OwenIt\Auditing\Models\Audit $record): string
+    {
+        if ($record->user instanceof Model) {
+            $label = self::resolveModelDisplayName($record->user);
+
+            if (filled($label)) {
+                return $label;
+            }
+        }
+
+        if (self::isLoginAudit($record) && $record->auditable instanceof Model) {
+            $label = self::resolveModelDisplayName($record->auditable);
+
+            if (filled($label)) {
+                return $label;
+            }
+        }
+
+        if ($record->user_id) {
+            $name = User::where('employee_id', $record->user_id)->first();
+            return $name->name;
+        }
+
+        return 'System';
+    }
+
+    protected static function resolveModelDisplayName(Model $model): ?string
+    {
+        if (method_exists($model, 'getDisplayName')) {
+            $displayName = $model->getDisplayName();
+
+            if (filled($displayName)) {
+                return (string) $displayName;
+            }
+        }
+
+        $preferredAttributes = [
+            'name',
+            'full_name',
+            'display_name',
+            'title',
+            'label',
+            'username',
+            'email',
+            'code',
+            'reference',
+        ];
+
+        foreach ($preferredAttributes as $attribute) {
+            $value = data_get($model, $attribute);
+
+            if (filled($value)) {
+                return (string) $value;
+            }
+        }
+
+        if (method_exists($model, '__toString')) {
+            $stringValue = (string) $model;
+
+            if (filled($stringValue) && $stringValue !== get_class($model)) {
+                return $stringValue;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function resolveEventLabel(\OwenIt\Auditing\Models\Audit $record): string
+    {
+        if (self::isLoginAudit($record)) {
+            return 'Login';
+        }
+
+        return $record->event ? Str::headline($record->event) : 'Unknown';
+    }
+
+    protected static function resolveEventColor(\OwenIt\Auditing\Models\Audit $record): string
+    {
+        if (self::isLoginAudit($record)) {
+            return 'info';
+        }
+
+        return match ($record->event) {
+            'created' => 'success',
+            'updated' => 'warning',
+            'deleted' => 'danger',
+            'restored' => 'info',
+            default => 'gray',
+        };
+    }
+
+    protected static function isLoginAudit(\OwenIt\Auditing\Models\Audit $record): bool
+    {
+        $auditableType = ltrim((string) $record->auditable_type, '\\');
+
+        if ($record->event !== 'updated' || $auditableType !== User::class) {
+            return false;
+        }
+
+        return self::auditHasLoginFieldChange($record);
+    }
+
+    protected static function auditHasLoginFieldChange(\OwenIt\Auditing\Models\Audit $record): bool
+    {
+        $newValues = self::normalizeAuditValues($record->new_values);
+        $oldValues = self::normalizeAuditValues($record->old_values);
+
+        return array_key_exists('last_login_at', $newValues) || array_key_exists('last_login_at', $oldValues);
+    }
+
+    protected static function normalizeAuditValues(mixed $values): array
+    {
+        if (is_array($values)) {
+            return $values;
+        }
+
+        if (is_string($values) && filled($values)) {
+            $decoded = json_decode($values, true);
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
     }
 
     public static function getPages(): array
