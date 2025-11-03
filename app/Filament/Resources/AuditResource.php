@@ -344,6 +344,6 @@ class AuditResource extends Resource
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager']);
+        return in_array(auth()->user()->role, ['admin', 'manager', 'superadmin']);
     }
 }

@@ -354,4 +354,9 @@ class ProductCategoryResource extends Resource
             ->withCount(['children', 'products']);
     }
 
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+    }
+
 }
