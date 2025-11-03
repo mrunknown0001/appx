@@ -227,4 +227,9 @@ class UnitResource extends Resource
             'Products' => $record->products_count . ' products',
         ];
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+    }
 }

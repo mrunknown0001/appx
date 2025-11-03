@@ -26,11 +26,6 @@ class AppPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        \Log::info('Configuring Filament panel', [
-            'provider' => static::class,
-            'dashboard_class' => \App\Filament\Pages\Dashboard::class,
-        ]);
-
         return $panel
             ->homeUrl(fn () => route('filament.app.pages.dashboard'))
             ->default()

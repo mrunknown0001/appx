@@ -402,7 +402,7 @@ class AdministratorsResource extends Resource
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()->role, ['admin']);
+        return in_array(auth()->user()->role, ['admin', 'superadmin']);
     }
 
     public static function getEloquentQuery(): Builder

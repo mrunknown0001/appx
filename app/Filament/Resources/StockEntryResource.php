@@ -439,4 +439,9 @@ class StockEntryResource extends Resource
             'Entry Date' => optional($record->entry_date)->format('M d, Y') ?? 'N/A',
         ];
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+    }
 }

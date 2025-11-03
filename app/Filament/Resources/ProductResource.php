@@ -551,4 +551,9 @@ class ProductResource extends Resource
             default => null,
         };
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+    }
 }

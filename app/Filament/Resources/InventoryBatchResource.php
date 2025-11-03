@@ -497,4 +497,9 @@ class InventoryBatchResource extends Resource
             ->with(['product.unit', 'stockEntry'])
             ->orderBy('created_at', 'desc');
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'manager', 'superadmin']);
+    }
 }

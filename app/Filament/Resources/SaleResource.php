@@ -702,4 +702,9 @@ class SaleResource extends Resource
             'Items' => $record->saleItems->count() . ' items',
         ];
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+    }
 }

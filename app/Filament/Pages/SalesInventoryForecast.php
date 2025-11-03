@@ -139,4 +139,9 @@ class SalesInventoryForecast extends Page implements HasForms
     {
         return [];
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'superadmin']);
+    }
 }
