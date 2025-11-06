@@ -220,4 +220,9 @@ class Dashboard extends BaseDashboard
             DetailedSalesBreakdownWidget::class,
         ];
     }
+
+    public static function canAccess(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'superadmin']);
+    }
 }
