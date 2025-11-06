@@ -190,8 +190,8 @@ class ViewSale extends ViewRecord
                                                     ->placeholder('₱0.00')
                                                     ->color('warning'),
 
-                                                TextEntry::make('discount_amount')
-                                                    ->label('Discount')
+                                                TextEntry::make('total_discount_amount')
+                                                    ->label('Total Discount')
                                                     ->money('PHP')
                                                     ->placeholder('₱0.00')
                                                     ->color('danger')

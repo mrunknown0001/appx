@@ -83,8 +83,9 @@ class SaleResource extends Resource
         $subtotal = (float) $get('subtotal');
         $taxAmount = (float) ($get('tax_amount') ?? 0);
         $discountAmount = (float) ($get('discount_amount') ?? 0);
+        $totalDiscountAmount = (float) ($get('total_discount_amount') ?? 0);
         
-        return max(0, $subtotal + $taxAmount - $discountAmount);
+        return max(0, $subtotal + $taxAmount - $totalDiscountAmount);
     }
 
     public static function form(Form $form): Form
@@ -389,18 +390,45 @@ class SaleResource extends Resource
                                                     })
                                                     ->helperText('Additional tax (optional)'),
 
+
+                                                Select::make('discount')
+                                                    ->options([
+                                                        '20%' => '20% Discount (Senior/PWD)',
+                                                        'other' => 'Other'
+                                                    ])
+                                                    ->live(debounce: 500)
+                                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                        if($state == '20%') {
+                                                            $set('discount_amount',0);
+                                                            $total = self::calculateTotal($get);
+                                                            $discount = $total * 0.2;
+                                                            $set('total_discount_amount', $discount);
+                                                            $set('total_amount', number_format($total - $discount, 2, '.', ''));
+                                                        }
+                                                        elseif($state == 'other') {
+                                                            $total = self::calculateTotal($get);
+                                                            $set('total_amount', number_format($total, 2, '.', ''));
+                                                        }
+                                                    }),
+
                                                 TextInput::make('discount_amount')
                                                     ->label('Sale-Level Discount')
                                                     ->numeric()
+                                                    ->visible(fn (Get $get) => $get('discount') == 'other')
                                                     ->prefix('₱')
                                                     ->default(0)
                                                     ->minValue(0)
                                                     ->live(debounce: 500)
-                                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                        $set('total_discount_amount', $state);
                                                         $total = self::calculateTotal($get);
                                                         $set('total_amount', number_format($total, 2, '.', ''));
                                                     })
                                                     ->helperText('Overall sale discount (optional)'),
+
+                                                TextInput::make('total_discount_amount')
+                                                    ->numeric()
+                                                    ->readOnly(),
 
                                                 TextInput::make('total_amount')
                                                     ->label('Total Amount')
@@ -659,7 +687,8 @@ class SaleResource extends Resource
         $subtotal = $sale->saleItems->sum(fn (SaleItem $item): float => (float) $item->total_price);
         $taxAmount = (float) $sale->tax_amount;
         $discountAmount = (float) $sale->discount_amount;
-        $total = max(0, $subtotal + $taxAmount - $discountAmount);
+        $totalDiscountAmount = (float) $sale->total_discount_amount;
+        $total = max(0, $subtotal + $taxAmount - $totalDiscountAmount);
 
         $normalizedTotals = [
             'subtotal' => round($subtotal, 2),

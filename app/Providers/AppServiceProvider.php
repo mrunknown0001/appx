@@ -3,11 +3,15 @@
 namespace App\Providers;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
-
+use App\Http\Responses\LoginResponse;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
+    public $singletons = [
+        \Filament\Http\Responses\Auth\Contracts\LoginResponse::class => LoginResponse::class,
+    ];
+
     /**
      * Register any application services.
      */
