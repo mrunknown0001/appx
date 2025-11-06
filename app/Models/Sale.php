@@ -21,7 +21,9 @@ class Sale extends Model implements Auditable
         'total_amount',
         'payment_method',
         'status',
-        'notes'
+        'notes',
+        'discount',
+        'total_discount_amount'
     ];
 
     protected $casts = [
@@ -29,6 +31,7 @@ class Sale extends Model implements Auditable
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'total_discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2'
     ];
 
