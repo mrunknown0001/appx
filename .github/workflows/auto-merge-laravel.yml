@@ -9,7 +9,7 @@ on:
 
 jobs:
   auto-merge:
-    if: github.ref != 'refs/heads/master' # Skip running on master pushes
+    if: ${{ github.ref_name != 'master' }}
     runs-on: ubuntu-latest
 
     steps:
