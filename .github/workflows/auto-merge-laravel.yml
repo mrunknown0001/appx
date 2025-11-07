@@ -1,0 +1,68 @@
+name: Auto Merge to Master (Laravel)
+
+on:
+  push:
+    branches:
+      - '**'          # Trigger on push to any branch
+      - '!master'     # Exclude direct pushes to master
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  auto-merge:
+    if: github.ref != 'refs/heads/master' # Skip running on master pushes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch full history for accurate merge check
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo, pdo_mysql, bcmath
+          tools: composer:v2
+          coverage: none
+
+      - name: Copy environment
+        run: |
+          cp .env.example .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run Laravel tests
+        run: php artisan test
+
+      - name: Check for merge conflicts
+        run: |
+          git fetch origin master
+          git checkout -b temp-merge-check
+          set +e
+          git merge --no-commit --no-ff origin/master
+          CONFLICTS=$(git ls-files -u | wc -l)
+          if [ "$CONFLICTS" -gt 0 ]; then
+            echo "❌ Merge conflicts detected. Aborting merge."
+            exit 1
+          else
+            echo "✅ No merge conflicts detected."
+          fi
+          git merge --abort
+
+      - name: Merge branch into master
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout master
+          git pull origin master
+          git merge --no-ff ${{ github.ref_name }} -m "Auto-merge branch '${{ github.ref_name }}' into master"
+          git push origin master
