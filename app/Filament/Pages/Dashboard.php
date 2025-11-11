@@ -223,6 +223,6 @@ class Dashboard extends BaseDashboard
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'superadmin']);
+        return in_array(auth()->user()->role, ['admin', 'superadmin', 'manager']);
     }
 }
