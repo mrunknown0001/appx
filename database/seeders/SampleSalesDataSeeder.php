@@ -29,7 +29,7 @@ class SampleSalesDataSeeder extends Seeder
         $this->command->info("Found {$products->count()} products. Generating sales history...");
 
         // Generate sales for the last 3 years (36 months)
-        $startDate = Carbon::now()->subYears(4);
+        $startDate = Carbon::now()->subYears(3);
         // 4 months Sales data
         // $startDate = Carbon::now()->subMonths(4);
         $endDate = Carbon::now();
