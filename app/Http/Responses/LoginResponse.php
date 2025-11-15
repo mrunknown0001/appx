@@ -13,7 +13,9 @@ class LoginResponse extends BaseLoginResponse
     {
         // Check the user's role and redirect accordingly
         if (auth()->user()->role == 'manager') {
-            return redirect()->to(route('filament.app.resources.stock-entries.index'));
+            // TODO: Redirect to custom route for this role
+            // return redirect()->to(route('filament.app.resources.stock-entries.index'));
+            return redirect()->to(Dashboard::getUrl(panel: 'app'));
         } elseif (auth()->user()->is_employee) {
             return redirect()->to(Dashboard::getUrl(panel: 'app'));
         }

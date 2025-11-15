@@ -34,7 +34,7 @@ class SalesInventoryForecast extends Page implements HasForms
         $this->form->fill([
             'product_id' => 'all',
             'forecast_period' => 'monthly',
-            'forecast_horizon' => 12,
+            'forecast_horizon' => 2,
         ]);
     }
 
@@ -56,26 +56,63 @@ class SalesInventoryForecast extends Page implements HasForms
                             ->required()
                             ->searchable(),
 
+                        // Select::make('forecast_period')
+                        //     ->label('Forecast Period')
+                        //     ->options([
+                        //         'weekly' => 'Weekly',
+                        //         'monthly' => 'Monthly',
+                        //         'quarterly' => 'Quarterly',
+                        //     ])
+                        //     ->default('monthly')
+                        //     ->required(),
+
+                        // Select::make('forecast_horizon')
+                        //     ->label('Forecast Horizon')
+                        //     ->options([
+                        //         4 => '4 Periods',
+                        //         8 => '8 Periods',
+                        //         12 => '12 Periods',
+                        //         24 => '24 Periods',
+                        //     ])
+                        //     ->default(12)
+                        //     ->required(),
+
                         Select::make('forecast_period')
-                            ->label('Forecast Period')
+                            ->required()
                             ->options([
-                                'weekly' => 'Weekly',
                                 'monthly' => 'Monthly',
-                                'quarterly' => 'Quarterly',
+                                'weekly' => 'Weekly',
                             ])
-                            ->default('monthly')
-                            ->required(),
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state === 'monthly') {
+                                    $set('forecast_horizon', 2);
+                                } elseif ($state === 'weekly') {
+                                    $set('forecast_horizon', 8);
+                                }
+                            }),
 
                         Select::make('forecast_horizon')
-                            ->label('Forecast Horizon')
-                            ->options([
-                                4 => '4 Periods',
-                                8 => '8 Periods',
-                                12 => '12 Periods',
-                                24 => '24 Periods',
-                            ])
-                            ->default(12)
-                            ->required(),
+                            ->required()
+                            ->reactive()
+                            ->options(function (callable $get) {
+                                $period = $get('forecast_period');
+
+                                if ($period === 'monthly') {
+                                    return [
+                                        2 => '2',
+                                    ];
+                                }
+
+                                return [
+                                    4 => '4',
+                                    8 => '8',
+                                ];
+                            })
+                            ->default(function (callable $get) {
+                                return $get('forecast_period') === 'monthly' ? 2 : 8;
+                            })
+
                     ]),
             ])
             ->statePath('data');
