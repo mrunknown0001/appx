@@ -17,18 +17,19 @@ class ARIMAForecastService
     public function generateSalesForecast(?int $productId, string $period, int $horizon): array
     {
         $historicalData = $this->getHistoricalSalesData($productId, $period);
-        
+
         // Check if we have any data at all
         if (empty($historicalData)) {
             throw new \Exception('No historical sales data found. Please ensure you have sales records in the system.');
         }
-        
+
         $forecasts = [];
         $skippedProducts = [];
-        
+        $effectiveHorizon = $this->getEffectiveHorizon($period, $horizon);
+
         foreach ($historicalData as $prodId => $data) {
             $product = Product::find($prodId);
-            
+
             if (!$product) {
                 continue;
             }
@@ -42,6 +43,7 @@ class ARIMAForecastService
                 'historical_points' => count($data['quantities']),
                 'unique_periods' => count(array_unique($data['periods'] ?? [])),
                 'continuity' => $continuity,
+                'effective_horizon' => $effectiveHorizon,
             ]);
 
             if (($continuity['missing_periods'] ?? 0) > 0) {
@@ -52,7 +54,7 @@ class ARIMAForecastService
                     'continuity' => $continuity,
                 ]);
             }
-            
+
             // Need at least 3 data points for ARIMA
             if (count($data['quantities']) < 3) {
                 Log::info('ARIMA skipping product due to insufficient data points', [
@@ -65,18 +67,24 @@ class ARIMAForecastService
                 continue;
             }
 
-            // ARIMA Forecast
+            // ARIMA Forecast using effective horizon
             $quantityForecast = $this->arimaForecast(
-                $data['quantities'], 
-                $horizon,
+                $data['quantities'],
+                $effectiveHorizon,
                 $p = 1, $d = 1, $q = 1
             );
-            
+
             $revenueForecast = $this->arimaForecast(
-                $data['revenues'], 
-                $horizon,
+                $data['revenues'],
+                $effectiveHorizon,
                 $p = 1, $d = 1, $q = 1
             );
+
+            // Aggregate forecasts for monthly period
+            if ($period === 'monthly') {
+                $quantityForecast = $this->aggregateWeeklyForecastsToMonthly($quantityForecast, $horizon);
+                $revenueForecast = $this->aggregateWeeklyForecastsToMonthly($revenueForecast, $horizon);
+            }
 
             $forecasts[$prodId] = [
                 'product' => $product,
@@ -315,12 +323,8 @@ class ARIMAForecastService
      */
     private function getHistoricalSalesData(?int $productId, string $period): array
     {
-        $dateGrouping = match($period) {
-            'weekly' => "CONCAT(YEAR(sale_items.created_at), '-W', LPAD(WEEK(sale_items.created_at), 2, '0'))",
-            'monthly' => "DATE_FORMAT(sale_items.created_at, '%Y-%m')",
-            'quarterly' => "CONCAT(YEAR(sale_items.created_at), '-Q', QUARTER(sale_items.created_at))",
-            default => "DATE_FORMAT(sale_items.created_at, '%Y-%m')",
-        };
+        // Always aggregate data weekly for consistency
+        $dateGrouping = "CONCAT(YEAR(sale_items.created_at), '-W', LPAD(WEEK(sale_items.created_at), 2, '0'))";
 
         $query = SaleItem::query()
             ->selectRaw("
@@ -347,13 +351,90 @@ class ARIMAForecastService
                     'periods' => [],
                 ];
             }
-            
+
             $grouped[$row->product_id]['quantities'][] = (float) $row->total_quantity;
             $grouped[$row->product_id]['revenues'][] = (float) $row->total_revenue;
             $grouped[$row->product_id]['periods'][] = $row->period;
         }
 
         return $grouped;
+    }
+
+    /**
+     * Resample weekly data to target period
+     */
+    private function resampleData(array $grouped, string $targetPeriod): array
+    {
+        $resampled = [];
+        foreach ($grouped as $prodId => $data) {
+            $periods = $data['periods'];
+            $quantities = $data['quantities'];
+            $revenues = $data['revenues'];
+            $groupedByTarget = [];
+
+            foreach ($periods as $index => $period) {
+                try {
+                    $carbon = $this->parseWeeklyPeriod($period);
+                    $targetPeriodStr = match($targetPeriod) {
+                        'monthly' => $carbon->format('Y-m'),
+                        'quarterly' => $carbon->year . '-Q' . ceil($carbon->month / 3),
+                        default => $period,
+                    };
+
+                    if (!isset($groupedByTarget[$targetPeriodStr])) {
+                        $groupedByTarget[$targetPeriodStr] = ['q' => 0, 'r' => 0];
+                    }
+
+                    $groupedByTarget[$targetPeriodStr]['q'] += $quantities[$index];
+                    $groupedByTarget[$targetPeriodStr]['r'] += $revenues[$index];
+                } catch (\Exception $e) {
+                    Log::warning('Failed to parse weekly period for resampling', [
+                        'period' => $period,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $resampled[$prodId] = [
+                'quantities' => array_values(array_column($groupedByTarget, 'q')),
+                'revenues' => array_values(array_column($groupedByTarget, 'r')),
+                'periods' => array_keys($groupedByTarget),
+            ];
+        }
+        return $resampled;
+    }
+
+    /**
+     * Get effective horizon in weeks for forecasting
+     */
+    private function getEffectiveHorizon(string $period, int $horizon): int
+    {
+        return match($period) {
+            'weekly' => $horizon,
+            'monthly' => $horizon * 4, // Approximate 4 weeks per month
+            'quarterly' => $horizon * 13, // Approximate 13 weeks per quarter
+            default => $horizon,
+        };
+    }
+
+    /**
+     * Aggregate weekly forecasts to monthly
+     */
+    private function aggregateWeeklyForecastsToMonthly(array $weeklyForecasts, int $monthlyHorizon): array
+    {
+        $monthly = [];
+        $weeksPerMonth = 4; // Approximate
+        for ($m = 0; $m < $monthlyHorizon; $m++) {
+            $sum = 0;
+            for ($w = 0; $w < $weeksPerMonth; $w++) {
+                $index = $m * $weeksPerMonth + $w;
+                if ($index < count($weeklyForecasts)) {
+                    $sum += $weeklyForecasts[$index];
+                }
+            }
+            $monthly[] = round($sum, 2);
+        }
+        return $monthly;
     }
 
     /**
