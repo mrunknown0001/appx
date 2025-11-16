@@ -101,11 +101,15 @@ class SalesInventoryForecast extends Page implements HasForms
                                 if ($period === 'monthly') {
                                     return [
                                         2 => '2',
+                                        3 => '3',
+                                        4 => '4',
                                     ];
                                 }
 
                                 return [
+                                    2 => '2',
                                     4 => '4',
+                                    6 => '6',
                                     8 => '8',
                                 ];
                             })
