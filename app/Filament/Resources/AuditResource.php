@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -111,6 +112,7 @@ class AuditResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->wrap(),
             ])
+            ->recordAction('view')
             ->defaultSort('created_at', 'desc')
             ->filters([
                 // filter employee id
@@ -143,6 +145,13 @@ class AuditResource extends Resource
             ])
             ->actions([
                 // Tables\Actions\EditAction::make(),
+                Action::make('view')
+                    ->label('View')
+                    ->modalHeading('Record Details')
+                    ->modalContent(fn ($record) => view('filament.modals.view-record', [
+                        'record' => $record,
+                    ]))
+                    ->modalSubmitAction(false),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
