@@ -195,7 +195,10 @@ class AuditResource extends Resource
 
         if ($record->user_id) {
             $name = User::where('employee_id', $record->user_id)->first();
-            return $name->name;
+            if(!empty($name)) {
+                return $name->name;
+            }
+            return 'Unknown';
         }
 
         return 'System';
