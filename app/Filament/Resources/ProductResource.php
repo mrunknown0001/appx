@@ -554,6 +554,6 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()->role, ['manager', 'superadmin']);
+        return in_array(auth()->user()->role, ['admin', 'manager', 'superadmin']);
     }
 }
