@@ -113,6 +113,7 @@ class AuditResource extends Resource
                     ->wrap(),
             ])
             ->recordAction('view')
+            ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->filters([
                 // filter employee id
