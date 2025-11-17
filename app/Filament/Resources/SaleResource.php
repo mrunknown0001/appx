@@ -428,6 +428,7 @@ class SaleResource extends Resource
 
                                                 TextInput::make('total_discount_amount')
                                                     ->numeric()
+                                                    ->default(0)
                                                     ->readOnly(),
 
                                                 TextInput::make('total_amount')
