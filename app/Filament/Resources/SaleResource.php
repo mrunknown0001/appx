@@ -185,6 +185,7 @@ class SaleResource extends Resource
                                                                     );
 
                                                                     $set('inventory_batch_id', null);
+                                                                    $set('unit_price', null);
                                                                     $set('total_price', null);
                                                                 } else {
                                                                     $set('unit_price', number_format(0, 2, '.', ''));
@@ -222,14 +223,14 @@ class SaleResource extends Resource
                                                                     ->where('status', 'active')
                                                                     ->get()
                                                                     ->pluck('batch_number', 'id');
+
                                                             })
                                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                                 if ($state) {
                                                                     $batch = InventoryBatch::with('stockEntry')->find($state);
-
-                                                                    if ($batch?->stockEntryItem?->selling_price !== null) {
-                                                                        $set('unit_price', number_format((float) $batch->stockEntryItem->selling_price, 2, '.', ''));
-                                                                    }
+                                                                    
+                                                                    $set('unit_price', number_format((float) $batch->stockEntry->selling_price, 2, '.', ''));
+                                                                    
 
                                                                     $set('total_price', null);
                                                                 }
