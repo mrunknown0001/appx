@@ -13,14 +13,13 @@ return new class extends Migration
     {
         Schema::create('stock_audits', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('requested_by')->constrained('users')->onDelete('cascade');
+            $table->unsignedBigInteger('requested_by');
             $table->date('date_requested')->nullable();
-            $table->unsignedBigInteger('audited_by')->constrained('users')->onDelete('cascade')->nullable();
+            $table->unsignedBigInteger('audited_by')->nullable();
             $table->date('date_audited')->nullable();
+            $table->date('completed_at')->nullable();
             $table->text('remarks')->nullable();
             $table->string('status')->default('pending');
-            $table->foreign('requested_by')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('audited_by')->references('id')->on('users')->onDelete('cascade');
             $table->timestamps();
         });
     }

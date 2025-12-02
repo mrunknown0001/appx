@@ -13,11 +13,12 @@ class StockAudit extends Model
         'audited_by',
         'date_audited',
         'remarks',
-        'status'
+        'status',
+        'completed_at'
     ];
 
 
-    public function stockAuditItems()
+    public function entries()
     {
         return $this->hasMany(StockAuditEntry::class);
     }

@@ -12,11 +12,18 @@ class StockAuditEntry extends Model
         'expected_quantity',
         'actual_quantity',
         'difference',
-        'notes'
+        'is_audited',
+        'matched',
+        'remarks'
     ];
 
     public function stockAudit()
     {
         return $this->belongsTo(StockAudit::class);
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
     }
 }
