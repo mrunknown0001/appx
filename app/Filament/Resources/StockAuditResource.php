@@ -114,4 +114,20 @@ class StockAuditResource extends Resource
             'audit-products' => Pages\AuditProducts::route('/{record}/audit'),
         ];
     }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = StockAudit::where('status', 'pending')->count();
+
+        if($count > 0) {
+            return "🔍";
+        }
+        return null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
 }
