@@ -40,7 +40,6 @@ class ListStockAudits extends ListRecords
                         return;
                     }
                     $stockAudit = StockAudit::create([
-                        'requested_by' => auth()->id(),
                         'date_requested' => now(),
                         'status' => 'pending',
                     ]);

@@ -36,8 +36,6 @@ class StockAuditResource extends Resource
             ->schema([
                 Section::make('Stock Audit Details')
                     ->schema([
-                        Hidden::make('requested_by')
-                            ->default(auth()->user()->id),
                         Forms\Components\DatePicker::make('date_requested')
                             ->label('Date Requested')
                             ->default(now())

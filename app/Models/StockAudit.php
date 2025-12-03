@@ -18,6 +18,16 @@ class StockAudit extends Model
     ];
 
 
+    protected static function booted()
+    {
+        static::creating(function ($stockAudit) {
+            if (empty($stockAudit->date_requested)) {
+                $stockAudit->date_requested = now();
+            }
+            $stockAudit->requested_by = auth()->id();
+        });
+    }
+
     public function entries()
     {
         return $this->hasMany(StockAuditEntry::class);
