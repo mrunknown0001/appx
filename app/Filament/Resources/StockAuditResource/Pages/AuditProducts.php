@@ -70,14 +70,10 @@ class AuditProducts extends Page implements Tables\Contracts\HasTable
                     ->label('Actual Quantity'),
                 Tables\Columns\TextColumn::make('difference')
                     ->label('Difference')
-                    ->state(fn ($record) => $record->expected_quantity - $record->actual_quantity),
+                    ->state(fn ($record) => $record->expected_quantity - $record->actual_quantity)
+                    ->color(fn ($state) => $state < 0 ? 'danger' : ($state > 0 ? 'warning' : 'success')),
                 Tables\Columns\TextColumn::make('is_audited')
                     ->label('Audited')
-                    ->badge()
-                    ->color(fn ($state) => $state ? 'success' : 'danger')
-                    ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
-                Tables\Columns\TextColumn::make('matched')
-                    ->label('Matched')
                     ->badge()
                     ->color(fn ($state) => $state ? 'success' : 'danger')
                     ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
@@ -97,6 +93,14 @@ class AuditProducts extends Page implements Tables\Contracts\HasTable
                     ->modalCancelActionLabel('Cancel')
                     ->modalCloseButton()
                     ->action(function (StockAuditEntry $entry) {
+                        if($entry->is_audited) {
+                            Notification::make()
+                            ->title('Already Audited')
+                            ->body('This entry has already been audited.')
+                            ->warning()
+                            ->send();
+                            return;
+                        }
                         // $entry is a StockAuditEntry instance
                         $entry->update([
                             'audited_by' => auth()->id(),
@@ -150,6 +154,14 @@ class AuditProducts extends Page implements Tables\Contracts\HasTable
                     ->modalCancelActionLabel('Cancel')
                     ->modalCloseButton()
                     ->action(function (array $data,StockAuditEntry $entry) {
+                        if($entry->is_audited) {
+                            Notification::make()
+                            ->title('Already Audited')
+                            ->body('This entry has already been audited.')
+                            ->warning()
+                            ->send();
+                            return;
+                        }
                         // update the existing entry instead of creating a new one
                         $entry->update([
                             'audited_by' => auth()->id(),
