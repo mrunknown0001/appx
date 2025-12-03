@@ -189,7 +189,8 @@ class StockEntryResource extends Resource
                                         TextInput::make('batch_number')
                                             ->label('Batch Number')
                                             ->maxLength(255)
-                                            ->placeholder('Optional batch identifier')
+                                            ->required()
+                                            ->placeholder('Batch Indentifier')
                                             ->columnSpan(1),
                                     ])
                                     ->columns(6),
