@@ -10,6 +10,8 @@ class StockAudit extends Model
     protected $fillable = [
         'requested_by',
         'date_requested',
+        'target_audit_date',
+        'actual_audit_date',
         'audited_by',
         'date_audited',
         'remarks',

@@ -184,6 +184,7 @@ class StockEntryResource extends Resource
                                             ->label('Expiry Date')
                                             ->nullable()
                                             ->after('entry_date')
+                                            ->required()
                                             ->columnSpan(1),
 
                                         TextInput::make('batch_number')

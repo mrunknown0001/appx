@@ -41,6 +41,10 @@ class StockAuditResource extends Resource
                             ->default(now())
                             ->required()
                             ->readOnly(),
+                        Forms\Components\DatePicker::make('target_audit_date')
+                            ->label('Target Audit Date')
+                            ->required()
+                            ->minDate(now())
                     ])
             ]);
     }
@@ -51,6 +55,10 @@ class StockAuditResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('date_requested')
                     ->label('Date Requested')
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('target_audit_date')
+                    ->label('Target Audit Date')
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
@@ -114,4 +122,20 @@ class StockAuditResource extends Resource
             'audit-products' => Pages\AuditProducts::route('/{record}/audit'),
         ];
     }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = StockAudit::where('status', 'pending')->count();
+
+        if($count > 0) {
+            return "🔍";
+        }
+        return null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
 }

@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 use App\Models\StockAudit;
 use Filament\Notifications\Notification;
 use App\Models\Product;
+use Filament\Forms;
+use Filament\Forms\Components\DatePicker;
 
 class ListStockAudits extends ListRecords
 {
@@ -22,10 +24,15 @@ class ListStockAudits extends ListRecords
                 ->requiresConfirmation()
                 ->modalHeading('Create Stock Audit')
                 ->modalDescription('Are you sure you want to create a new stock audit?')
-                ->modalSubmitActionLabel('Yes')
+                ->modalSubmitActionLabel('Create')
                 ->modalCancelActionLabel('Cancel')
-                ->modalCloseButton()
-                ->action(function () {
+                ->form([
+                    DatePicker::make('target_audit_date')
+                        ->label('Target Audit Date')
+                        ->required()
+                        ->minDate(now())
+                ])
+                ->action(function (array $data) {
                     if (!auth()->check()) {
                         throw new \Exception('You must be logged in to create a stock audit.');
                     }
@@ -41,6 +48,7 @@ class ListStockAudits extends ListRecords
                     }
                     $stockAudit = StockAudit::create([
                         'date_requested' => now(),
+                        'target_audit_date' => $data['target_audit_date'],
                         'status' => 'pending',
                     ]);
                     Notification::make()
@@ -61,7 +69,6 @@ class ListStockAudits extends ListRecords
                         ]);
                     });
                 })
-                ->successNotificationTitle('Stock audit created successfully')
         ];
     }
 }
