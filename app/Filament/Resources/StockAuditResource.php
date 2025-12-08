@@ -41,6 +41,10 @@ class StockAuditResource extends Resource
                             ->default(now())
                             ->required()
                             ->readOnly(),
+                        Forms\Components\DatePicker::make('target_audit_date')
+                            ->label('Target Audit Date')
+                            ->required()
+                            ->minDate(now())
                     ])
             ]);
     }
@@ -51,6 +55,10 @@ class StockAuditResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('date_requested')
                     ->label('Date Requested')
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('target_audit_date')
+                    ->label('Target Audit Date')
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')

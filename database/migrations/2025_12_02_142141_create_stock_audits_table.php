@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('requested_by');
             $table->date('date_requested')->nullable();
+            $table->date('target_audit_date')->nullable();
+            $table->date('actual_audit_date')->nullable();
             $table->unsignedBigInteger('audited_by')->nullable();
             $table->date('date_audited')->nullable();
             $table->date('completed_at')->nullable();
