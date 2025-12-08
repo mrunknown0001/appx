@@ -375,7 +375,8 @@ class AdministratorsResource extends Resource
                 //             ->send();
                 //     }),
                 // Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => $record->id !== 1),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
