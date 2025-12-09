@@ -93,6 +93,7 @@ class StockAuditResource extends Resource
                 Tables\Actions\Action::make('audit')
                     ->label('Audit')
                     ->icon('heroicon-o-magnifying-glass')
+                    ->visible(fn() => auth()->user()->role === 'manager')
                     ->url(fn (StockAudit $record) =>
                         route('filament.app.resources.stock-audits.audit-products', $record)
                     ),
