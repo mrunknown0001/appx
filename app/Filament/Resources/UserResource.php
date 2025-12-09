@@ -408,6 +408,7 @@ class UserResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('role', '!==', 'admin');
+            ->where('role',  'manager')
+            ->orWhere('role', 'user');
     }
 }
