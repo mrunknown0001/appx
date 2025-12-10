@@ -57,7 +57,7 @@ class SampleSalesDataSeeder extends Seeder
 
                 // Create sale
                 $sale = Sale::create([
-                    'sale_number' => 'SALE-' . str_pad($saleNumber++, 6, '0', STR_PAD_LEFT),
+                    'sale_number' => 'SALE-' . str_pad($saleNumber++, 7, '0', STR_PAD_LEFT),
                     'customer_name' => $this->generateRandomName(),
                     'customer_phone' => $this->generatePhoneNumber(),
                     'sale_date' => $saleDate,
